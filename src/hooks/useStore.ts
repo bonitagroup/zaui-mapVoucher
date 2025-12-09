@@ -5,8 +5,9 @@ import {
   myVouchersState,
   selectedStoreState,
   userLocationState,
+  flashSaleState,
 } from '@/states/state';
-import { getUserInfo, showToast } from 'zmp-sdk';
+import { getAccessToken } from 'zmp-sdk';
 import api from '@/services/api';
 import { Store } from '@/types/store';
 
@@ -15,7 +16,7 @@ export const useStore = () => {
   const [myVouchers, setMyVouchers] = useRecoilState(myVouchersState);
   const [selectedStore, setSelectedStore] = useRecoilState(selectedStoreState);
   const userLocation = useRecoilValue(userLocationState);
-
+  const [flashSales, setFlashSales] = useRecoilState(flashSaleState);
   const [loading, setLoading] = useState(false);
 
   const fetchNearby = useCallback(async () => {
@@ -74,11 +75,12 @@ export const useStore = () => {
   const fetchMyWallet = useCallback(async () => {
     setLoading(true);
     try {
-      const { userInfo } = await getUserInfo({});
-      if (!userInfo.id) return;
+      const accessToken = await getAccessToken({});
 
       const res: any = await api.get('/api/store/my-wallet', {
-        params: { zaloId: userInfo.id },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
 
       if (res && Array.isArray(res.data)) {
@@ -96,26 +98,84 @@ export const useStore = () => {
   const saveVoucher = useCallback(
     async (voucherId: number) => {
       try {
-        const { userInfo } = await getUserInfo({});
-        if (!userInfo.id) {
-          return;
-        }
+        const accessToken = await getAccessToken({});
 
-        const res: any = await api.post('/api/store/save', {
-          zaloId: userInfo.id,
-          voucherId: voucherId,
-        });
+        const res: any = await api.post(
+          '/api/store/save',
+          {
+            voucherId: voucherId,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
 
         if (res && res.success) {
           fetchMyWallet();
         }
       } catch (error: any) {
         console.error('Lỗi lưu voucher:', error);
-        const msg = error?.response?.data?.error || 'Lỗi hệ thống';
       }
     },
     [fetchMyWallet]
   );
+
+  const unsaveVoucher = useCallback(
+    async (voucherId: number) => {
+      try {
+        const accessToken = await getAccessToken({});
+        const res: any = await api.post(
+          '/api/store/unsave',
+          { voucherId },
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        if (res && res.success) {
+          fetchMyWallet();
+          return { success: true };
+        }
+        return { success: false, message: 'Hủy thất bại' };
+      } catch (error: any) {
+        const msg = error?.response?.data?.error || 'Lỗi không thể hủy';
+        return { success: false, message: msg };
+      }
+    },
+    [fetchMyWallet]
+  );
+
+  const useVoucher = useCallback(
+    async (voucherId: number) => {
+      try {
+        const accessToken = await getAccessToken({});
+        const res: any = await api.post(
+          '/api/store/use',
+          { voucherId },
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (res && res.success) {
+          fetchMyWallet();
+          return { success: true };
+        }
+        return { success: false, message: 'Lỗi không xác định' };
+      } catch (error: any) {
+        return { success: false, message: error?.response?.data?.error || 'Lỗi hệ thống' };
+      }
+    },
+    [fetchMyWallet]
+  );
+
+  const fetchFlashSales = useCallback(async () => {
+    try {
+      const res: any = await api.get('/api/store/flash-sale');
+      if (res && Array.isArray(res.data)) {
+        setFlashSales(res.data);
+      }
+    } catch (error) {
+      console.error('Lỗi lấy Flash Sale:', error);
+    }
+  }, [setFlashSales]);
 
   return {
     stores,
@@ -127,5 +187,9 @@ export const useStore = () => {
     search,
     saveVoucher,
     fetchMyWallet,
+    unsaveVoucher,
+    useVoucher,
+    flashSales,
+    fetchFlashSales,
   };
 };

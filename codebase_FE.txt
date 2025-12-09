@@ -230,20 +230,25 @@ export default Logo;
 ================================================
 FILE PATH: src\components\layout.tsx
 ================================================
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom'; // Thêm useLocation
 import { Box } from 'zmp-ui';
 import HomePage from '@/pages/home';
 import MapPage from '@/pages/map';
 import VoucherPage from '@/pages/voucher';
 import ProfilePage from '@/pages/profile';
+import WelcomePage from '@/pages/welcome';
 import CustomBottomNavigation from './navigation';
 
 const Layout = () => {
+  const location = useLocation();
+  const isWelcomePage = location.pathname === '/' || location.pathname === '/welcome';
+
   return (
     <Box className="flex-1 flex flex-col h-screen overflow-hidden">
       <Box className="flex-1 overflow-auto relative">
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<WelcomePage />} />
+          <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/home" element={<HomePage />} />
           <Route path="/map" element={<MapPage />} />
           <Route path="/voucher" element={<VoucherPage />} />
@@ -251,7 +256,7 @@ const Layout = () => {
         </Routes>
       </Box>
 
-      <CustomBottomNavigation />
+      {!isWelcomePage && <CustomBottomNavigation />}
     </Box>
   );
 };
@@ -411,6 +416,24 @@ FILE PATH: src\css\app.scss
   cursor: pointer;
 }
 
+:root {
+  --app-primary: #d83231;
+}
+
+.zaui-header {
+  background-color: var(--app-primary) !important;
+  border-bottom: none !important;
+  height: 80px !important;
+
+  .zaui-header-title {
+    color: white !important;
+  }
+
+  .zaui-icon {
+    color: white !important;
+  }
+}
+
 
 ================================================
 FILE PATH: src\css\tailwind.scss
@@ -431,7 +454,7 @@ import {
   selectedStoreState,
   userLocationState,
 } from '@/states/state';
-import { getUserInfo, showToast } from 'zmp-sdk';
+import { getAccessToken } from 'zmp-sdk';
 import api from '@/services/api';
 import { Store } from '@/types/store';
 
@@ -499,11 +522,12 @@ export const useStore = () => {
   const fetchMyWallet = useCallback(async () => {
     setLoading(true);
     try {
-      const { userInfo } = await getUserInfo({});
-      if (!userInfo.id) return;
+      const accessToken = await getAccessToken({});
 
       const res: any = await api.get('/api/store/my-wallet', {
-        params: { zaloId: userInfo.id },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
 
       if (res && Array.isArray(res.data)) {
@@ -521,15 +545,19 @@ export const useStore = () => {
   const saveVoucher = useCallback(
     async (voucherId: number) => {
       try {
-        const { userInfo } = await getUserInfo({});
-        if (!userInfo.id) {
-          return;
-        }
+        const accessToken = await getAccessToken({});
 
-        const res: any = await api.post('/api/store/save', {
-          zaloId: userInfo.id,
-          voucherId: voucherId,
-        });
+        const res: any = await api.post(
+          '/api/store/save',
+          {
+            voucherId: voucherId,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
 
         if (res && res.success) {
           fetchMyWallet();
@@ -553,6 +581,109 @@ export const useStore = () => {
     saveVoucher,
     fetchMyWallet,
   };
+};
+
+
+================================================
+FILE PATH: src\hooks\useUserInit.ts
+================================================
+import { useEffect, useCallback } from 'react';
+import { useSetRecoilState } from 'recoil';
+import { userState, userLoadingState } from '@/states/state';
+import { getUserInfo, getAccessToken } from 'zmp-sdk';
+import { events, EventName } from 'zmp-sdk/apis';
+import api from '@/services/api';
+import { User } from '@/types/user';
+
+const syncUserToBackend = async (zaloUserInfo: {
+  name: string;
+  avatar: string;
+  id: string;
+}): Promise<User | null> => {
+  try {
+    const accessToken = await getAccessToken({});
+
+    const res: any = await api.post(
+      '/api/user/sync',
+      {
+        name: zaloUserInfo.name,
+        avatar: zaloUserInfo.avatar,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    return res?.data ?? null;
+  } catch (e) {
+    console.error('Lỗi đồng bộ User:', e);
+    return null;
+  }
+};
+
+export const useUserInit = () => {
+  const setUser = useSetRecoilState(userState);
+  const setLoading = useSetRecoilState(userLoadingState);
+
+  const initializeUser = useCallback(
+    async (isInitialLoad = false) => {
+      try {
+        if (isInitialLoad) {
+          setLoading(true);
+        }
+
+        const { userInfo } = await getUserInfo({
+          autoRequestPermission: true,
+          avatarType: 'normal',
+        });
+
+        if (userInfo) {
+          const userFromBackend = await syncUserToBackend({
+            id: userInfo.id,
+            name: userInfo.name,
+            avatar: userInfo.avatar,
+          });
+
+          if (userFromBackend) {
+            setUser(userFromBackend);
+          } else {
+            setUser({
+              id: userInfo.id,
+              name: userInfo.name,
+              avatar: userInfo.avatar,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Lỗi khởi tạo user:', error);
+      } finally {
+        if (isInitialLoad) {
+          setLoading(false);
+        }
+      }
+    },
+    [setUser, setLoading]
+  );
+
+  useEffect(() => {
+    // Chạy lần đầu khi mount
+    initializeUser(true);
+
+    // Chạy lại khi App được mở lại từ background (Resume)
+    const onAppResume = () => {
+      initializeUser(false);
+    };
+
+    events.on(EventName.AppResumed, onAppResume);
+    events.on(EventName.OpenApp, onAppResume);
+
+    return () => {
+      events.off(EventName.AppResumed, onAppResume);
+      events.off(EventName.OpenApp, onAppResume);
+    };
+  }, [initializeUser]);
 };
 
 
@@ -644,125 +775,182 @@ export const useUserLocation = () => {
 ================================================
 FILE PATH: src\pages\home\index.tsx
 ================================================
-// FILE: src/pages/home/index.tsx
 import React, { useEffect, useState } from 'react';
-import { Page, Input, Box, Text } from 'zmp-ui';
+import { Page, Input, Box, Text, Icon } from 'zmp-ui';
 import { useStore } from '@/hooks/useStore';
 import { useNavigate } from 'react-router-dom';
 import WelcomeHeader from './WelcomeHeader';
 import StoreDetailSheet from '@/components/StoreDetailSheet';
 import { Store } from '@/types/store';
+import TrendingList from './TrendingList';
 
 const HomePage: React.FC = () => {
   const { search, stores, setSelectedStore, loading, fetchNearby } = useStore();
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
-
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const safeStores = Array.isArray(stores) ? stores : [];
 
-  // Logic 1: Tìm kiếm ngay khi nhấn Enter hoặc icon kính lúp
   const handleSearch = (text: string) => {
-    if (text.trim()) {
-      search(text);
-    } else {
-      fetchNearby();
-    }
+    setKeyword(text);
   };
 
-  // Logic 2: Debounce (Tự động tìm sau khi ngừng gõ 500ms)
+  const exitSearchMode = () => {
+    setIsSearchFocused(false);
+    setKeyword('');
+    fetchNearby();
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Chỉ gọi search nếu keyword khác rỗng,
-      // nếu rỗng thì useEffect này không làm gì cả (để tránh conflict với fetchNearby ban đầu)
       if (keyword.trim()) {
         search(keyword);
       } else if (keyword === '') {
-        // Khi xoá hết chữ thì load lại quán gần đây
-        fetchNearby();
+        if (!isSearchFocused) fetchNearby();
       }
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [keyword, search, fetchNearby]);
+  }, [keyword, search, fetchNearby, isSearchFocused]);
 
   return (
-    <Page className="bg-gray-100 h-full pb-20">
+    <Page className="bg-gray-100 h-full pb-20 relative">
       <WelcomeHeader />
 
       <Box p={4} className="-mt-[80px] relative z-10">
-        <Input.Search
-          placeholder="Bạn muốn ăn gì hôm nay?"
-          className="bg-white rounded-full h-12 border-none"
-          onChange={(e) => setKeyword(e.target.value)}
-          onSearch={(val) => handleSearch(val)}
-          clearable
-        />
+        <div
+          onClick={() => setIsSearchFocused(true)}
+          className="bg-white rounded-full h-12 flex items-center px-4 shadow-sm border border-gray-100 active:scale-95 transition-transform"
+        >
+          <Icon icon="zi-search" className="text-gray-500 mr-2" />
+          <Text className="text-gray-400 text-sm flex-1">Bạn muốn ăn gì hôm nay?</Text>
+        </div>
       </Box>
+
+      <div className="bg-white pb-2 pt-4">
+        <TrendingList stores={safeStores.slice(0, 5)} loading={loading} />
+      </div>
 
       <Box px={4} mt={1}>
         <div className="flex justify-between items-end pt-6 mb-3 pb-2">
           <Text.Title size="normal" className="font-bold">
-            {keyword ? `Kết quả cho "${keyword}"` : 'Gợi ý quanh đây'}
+            Gợi ý quanh đây
           </Text.Title>
           <span
-            className="text-xs text-orange-600 font-bold bg-orange-100 px-6 py-1 rounded-full active:opacity-70"
+            className="text-xs text-[#D83231] font-bold bg-orange-100 px-6 py-1 rounded-full active:opacity-70"
             onClick={() => navigate('/map')}
           >
             Xem bản đồ &rarr;
           </span>
         </div>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center mt-10 space-y-2">
-            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-gray-400 text-xs">Đang tìm quán ngon...</span>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {safeStores.length > 0 ? (
-              safeStores.map((store: Store) => (
-                <div
-                  key={store.id}
-                  className="bg-white p-3 rounded-xl shadow-sm active:opacity-70 flex flex-col h-full border border-gray-100"
-                  onClick={() => setSelectedStore(store)}
-                >
-                  <img
-                    src={store.image || 'https://via.placeholder.com/150'}
-                    className="h-24 w-full object-cover rounded-lg mb-2 bg-gray-100"
-                    alt={store.name}
-                    onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150')}
-                  />
-                  <Text className="font-bold line-clamp-1 text-gray-800">{store.name}</Text>
-                  <Text size="xxSmall" className="text-gray-500 line-clamp-1 mb-2">
-                    {store.address}
-                  </Text>
-
-                  <div className="mt-auto flex gap-1 overflow-hidden">
-                    {store.vouchers && store.vouchers.length > 0 ? (
-                      <span className="text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded border border-orange-100 whitespace-nowrap font-medium">
-                        Giảm {store.vouchers[0].discount}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
-                        Chưa có mã
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-2 text-center text-gray-400 mt-10 italic">
-                <div className="text-4xl mb-2">🤔</div>
-                <p>Không tìm thấy quán nào.</p>
-                <p className="text-xs">Thử tìm từ khoá khác xem sao!</p>
-              </div>
-            )}
-          </div>
-        )}
+        <StoreListGrid
+          loading={loading}
+          stores={safeStores}
+          setSelectedStore={setSelectedStore}
+          isSearchResult={false}
+        />
       </Box>
+
+      {isSearchFocused && (
+        <div className="fixed inset-0 bg-gray-50 z-[9999] flex flex-col animate-[fadeIn_0.2s_ease-in-out]">
+          <div className="px-4 pt-8 pb-4 flex items-center border-b bg-[#D83231] border-gray-50">
+            <div
+              onClick={exitSearchMode}
+              className="w-8 h-8 flex items-center justify-center -ml-2 mr-2 rounded-full active:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <Icon icon="zi-chevron-left-header" className="text-white text-xl" />
+            </div>
+            <Text.Title size="normal" className="font-bold text-white pl-3">
+              Tìm kiếm
+            </Text.Title>
+          </div>
+          <div className="bg-white p-4  flex items-center gap-3 shadow-sm pt-safe-top">
+            <div className="flex-1">
+              <Input.Search
+                placeholder="Nhập tên quán, món ăn..."
+                className="bg-gray-100 rounded-full h-10 border-none"
+                value={keyword}
+                onChange={(e) => handleSearch(e.target.value)}
+                clearable
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            <Text.Title size="small" className="text-gray-500 mb-3 uppercase font-bold text-xs">
+              {keyword ? `Kết quả cho "${keyword}"` : 'Nhập từ khoá để tìm kiếm'}
+            </Text.Title>
+
+            <StoreListGrid
+              loading={loading}
+              stores={safeStores}
+              setSelectedStore={setSelectedStore}
+              isSearchResult={true}
+            />
+          </div>
+        </div>
+      )}
 
       <StoreDetailSheet />
     </Page>
+  );
+};
+
+const StoreListGrid = ({ loading, stores, setSelectedStore, isSearchResult }: any) => {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center mt-10 space-y-2">
+        <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-gray-400 text-xs">Đang tải dữ liệu...</span>
+      </div>
+    );
+  }
+
+  if (stores.length === 0) {
+    return (
+      <div className="text-center text-gray-400 mt-10 italic">
+        <div className="text-4xl mb-2">🤔</div>
+        <p>Không tìm thấy quán nào.</p>
+        {isSearchResult && <p className="text-xs">Thử tìm từ khoá khác xem sao!</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {stores.map((store: Store) => (
+        <div
+          key={store.id}
+          className="bg-white p-3 rounded-xl shadow-sm active:opacity-70 flex flex-col h-full border border-gray-100"
+          onClick={() => setSelectedStore(store)}
+        >
+          <img
+            src={store.image || 'https://via.placeholder.com/150'}
+            className="h-24 w-full object-cover rounded-lg mb-2 bg-gray-100"
+            alt={store.name}
+            onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150')}
+          />
+          <Text className="font-bold line-clamp-1 text-gray-800">{store.name}</Text>
+          <Text size="xxSmall" className="text-gray-500 line-clamp-1 mb-2">
+            {store.address}
+          </Text>
+
+          <div className="mt-auto flex gap-1 overflow-hidden">
+            {store.vouchers && store.vouchers.length > 0 ? (
+              <span className="text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded border border-orange-100 whitespace-nowrap font-medium">
+                Giảm {store.vouchers[0].discount}
+              </span>
+            ) : (
+              <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+                Chưa có mã
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 };
 
@@ -775,6 +963,158 @@ FILE PATH: src\pages\home\PromotionSlider.tsx
 
 
 ================================================
+FILE PATH: src\pages\home\TrendingList.tsx
+================================================
+import React from 'react';
+import { Text, Box, Icon } from 'zmp-ui';
+import { Store } from '@/types/store';
+import { useNavigate } from 'react-router-dom';
+import { useRecoilValue } from 'recoil';
+import { userState } from '@/states/state';
+
+const TrendingCard = ({ store, onClick }: { store: Store; onClick: () => void }) => {
+  const maxDiscount = React.useMemo(() => {
+    if (!store.vouchers || store.vouchers.length === 0) return null;
+
+    const percentVouchers = store.vouchers.filter((v) => Number(v.discount_percent) > 0);
+    if (percentVouchers.length > 0) {
+      const max = Math.max(...percentVouchers.map((v) => Number(v.discount_percent)));
+      return `-${max}%`;
+    }
+    return null;
+  }, [store.vouchers]);
+
+  const rating = (Math.random() * (5 - 3) + 3).toFixed(1);
+  const reviews = Math.floor(Math.random() * 100);
+
+  return (
+    <div
+      className="flex-shrink-0 w-[140px] flex flex-col bg-white rounded-lg shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden active:opacity-70 transition-opacity"
+      onClick={onClick}
+    >
+      <div className="h-[100px] w-full relative bg-gray-200">
+        <img
+          src={store.image || 'https://via.placeholder.com/150'}
+          className="w-full h-full object-cover"
+          alt={store.name}
+          onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150')}
+        />
+        {store.distance !== undefined && (
+          <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded backdrop-blur-sm">
+            {store.distance < 1
+              ? `${(store.distance * 1000).toFixed(0)}m`
+              : `${store.distance.toFixed(1)}km`}
+          </div>
+        )}
+      </div>
+
+      <div className="p-2 flex flex-col flex-1">
+        <Text className="font-bold text-sm text-gray-800 line-clamp-1 mb-1">{store.name}</Text>
+
+        <div className="flex items-center gap-1 mb-1">
+          <div className="flex text-yellow-400 text-[10px]">
+            {[...Array(5)].map((_, i) => (
+              <Icon
+                key={i}
+                icon="zi-star-solid"
+                size={10}
+                className={i < Math.round(Number(rating)) ? 'text-yellow-400' : 'text-gray-300'}
+              />
+            ))}
+          </div>
+          <Text size="xxSmall" className="text-gray-400 text-[10px]">
+            {reviews} reviews
+          </Text>
+        </div>
+
+        <div className="mt-auto flex items-center justify-between">
+          <Text className="text-red-500 font-bold text-xs">
+            {store.distance ? `${store.distance.toFixed(1)}km` : 'Gần đây'}
+          </Text>
+
+          {maxDiscount && (
+            <div className="bg-red-50 text-red-500 text-[10px] font-bold px-1.5 py-0.5 rounded">
+              {maxDiscount}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TrendingList = ({ stores, loading }: { stores: any[]; loading: boolean }) => {
+  const navigate = useNavigate();
+  const user = useRecoilValue(userState);
+
+  const skeletons = [1, 2, 3];
+
+  return (
+    <div className="bg-white mb-2 pb-4 pt-2">
+      <Box px={4} mb={4} className="flex gap-3 items-center">
+        <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-100">
+          <img
+            src={user?.avatar || 'https://i.imgur.com/8Km9tLL.png'}
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div>
+          <div className="flex items-center gap-1">
+            <Text className="font-bold text-gray-800 text-lg">
+              Chào {user ? user.name.split(' ').pop() : 'bạn'}! 👋
+            </Text>
+          </div>
+          <Text size="small" className="text-gray-500">
+            Bạn muốn ăn gì hôm nay?
+          </Text>
+        </div>
+      </Box>
+
+      <Box px={4} className="flex justify-between items-end mb-3">
+        <Text.Title size="normal" className="font-extrabold text-gray-800 uppercase tracking-tight">
+          ĐANG HOT GẦN BẠN
+        </Text.Title>
+        <Text
+          size="small"
+          className="text-red-500 font-medium cursor-pointer active:opacity-60"
+          onClick={() => navigate('/map')}
+        >
+          Xem tất cả
+        </Text>
+      </Box>
+
+      <div className="flex overflow-x-auto px-4 gap-3 pb-2 scrollbar-hide snap-x">
+        {loading ? (
+          skeletons.map((i) => (
+            <div
+              key={i}
+              className="flex-shrink-0 w-[140px] h-[180px] bg-gray-100 rounded-lg animate-pulse"
+            />
+          ))
+        ) : stores && stores.length > 0 ? (
+          stores.map((store) => (
+            <TrendingCard
+              key={store.id}
+              store={store}
+              onClick={() => {
+                console.log('Click quán:', store.name);
+              }}
+            />
+          ))
+        ) : (
+          <div className="text-gray-400 text-sm italic w-full text-center py-4">
+            Chưa có quán nào quanh đây
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default TrendingList;
+
+
+================================================
 FILE PATH: src\pages\home\WelcomeHeader.tsx
 ================================================
 import React from 'react';
@@ -782,15 +1122,15 @@ import { Box, Text } from 'zmp-ui';
 
 const WelcomeHeader: React.FC = () => {
   return (
-    <div className="bg-orange-500 p-4 pb-[80px] pt-12 rounded-b-3xl shadow-md text-white">
+    <div className="bg-[#D83231] p-4 pb-[80px] pt-12 rounded-b-3xl shadow-md text-white">
       <div className="flex justify-between items-start">
-        <div>
-          <Text size="small" className="opacity-90 text-white">
-            Xin chào,
-          </Text>
+        <div className="flex flex-col gap-4">
           <Text.Title size="normal" className="font-bold text-white mt-1">
-            Người săn Voucher!
+            Thái Nguyên Voucher Maps
           </Text.Title>
+          <Text size="small" className="opacity-90 text-white pl-4">
+            "Đi đâu cũng có deal, ăn gì cũng tiết kiệm"
+          </Text>
         </div>
       </div>
     </div>
@@ -1070,28 +1410,122 @@ FILE PATH: src\pages\map\RestaurantList.tsx
 ================================================
 FILE PATH: src\pages\profile\index.tsx
 ================================================
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Page, Header, List, Icon, Avatar, Box, Text } from 'zmp-ui';
+import { useRecoilState } from 'recoil';
+import { userState } from '@/states/state';
+import { getUserInfo, getAccessToken } from 'zmp-sdk';
+import api from '@/services/api';
 
 const ProfilePage: React.FC = () => {
+  const [user, setUser] = useRecoilState(userState);
+  const [loading, setLoading] = useState(false);
+
+  // --- HÀM 1: XỬ LÝ ĐỒNG BỘ USER (LOGIN) ---
+  const handleSyncUser = useCallback(async () => {
+    if (loading || user) return;
+
+    setLoading(true);
+    try {
+      const { userInfo } = await getUserInfo({
+        autoRequestPermission: true,
+        avatarType: 'normal',
+      });
+
+      if (userInfo) {
+        try {
+          const token = await getAccessToken({});
+          await api.post(
+            '/api/user/sync',
+            {
+              name: userInfo.name,
+              avatar: userInfo.avatar,
+            },
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+        } catch (err) {
+          console.error('Lỗi lưu backend:', err);
+        }
+
+        setUser({
+          id: userInfo.id,
+          name: userInfo.name,
+          avatar: userInfo.avatar,
+        });
+      }
+    } catch (error) {
+      console.log('Người dùng từ chối cấp quyền');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, loading, setUser]);
+
+  // --- HÀM 2: BẢO VỆ HÀNH ĐỘNG (Logic mới bạn cần) ---
+  // Hàm này nhận vào một hành động (callback).
+  // Nếu đã login -> Chạy hành động đó.
+  // Nếu chưa login -> Gọi hàm đăng nhập (handleSyncUser).
+  const handleProtectedAction = (action: () => void) => {
+    if (user) {
+      action(); // Đã có user, chạy chức năng
+    } else {
+      handleSyncUser(); // Chưa có user, hiện popup xin quyền
+    }
+  };
+
+  // --- TỰ ĐỘNG CHẠY 1 LẦN KHI VÀO TRANG ---
+  useEffect(() => {
+    if (!user) {
+      handleSyncUser();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <Page className="bg-gray-100 h-full">
-      <Header title="Tài khoản" showBackIcon={false} className="bg-white" />
+      <Header title="Tài khoản" showBackIcon={true} className="bg-white" />
 
-      {/* Phần thông tin người dùng */}
-      <div className="bg-white p-4 mb-2 flex items-center">
-        <Avatar size={72} story="default" online src="https://i.imgur.com/8Km9tLL.png">
-          U
-        </Avatar>
+      {/* --- PHẦN HEADER THÔNG TIN --- */}
+      <div
+        onClick={handleSyncUser}
+        className="bg-white p-4 mt-24 mb-2 flex items-center cursor-pointer active:opacity-70 transition-opacity"
+      >
+        <div className="relative">
+          <Avatar
+            size={72}
+            story="default"
+            online={!!user}
+            src={user?.avatar || 'https://i.imgur.com/8Km9tLL.png'}
+          >
+            {!user?.avatar && 'U'}
+          </Avatar>
+        </div>
+
         <Box className="ml-4">
-          <Text.Title className="font-bold text-lg">Người dùng Zalo</Text.Title>
-          <Text size="small" className="text-gray-500">
-            Thành viên Bạc
-          </Text>
+          {user ? (
+            <>
+              <Text.Title className="font-bold text-lg">{user.name}</Text.Title>
+              <Text size="small" className="text-gray-500">
+                Thành viên
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text.Title className="font-bold text-lg text-blue-600">
+                {loading ? 'Đang đồng bộ...' : 'Đăng nhập / Đăng ký'}
+              </Text.Title>
+              <Text size="small" className="text-gray-400">
+                {loading ? 'Vui lòng đợi...' : 'Chạm để đồng bộ tài khoản'}
+              </Text>
+            </>
+          )}
         </Box>
+
+        {!user && !loading && <Icon icon="zi-chevron-right" className="ml-auto text-gray-400" />}
       </div>
 
-      {/* Menu chức năng */}
+      {/* --- PHẦN MENU (Luôn hiển thị, nhưng bấm vào sẽ check quyền) --- */}
       <div className="bg-white mb-2">
         <Text.Header className="px-4 py-3 text-gray-500">Tiện ích</Text.Header>
         <List>
@@ -1099,17 +1533,33 @@ const ProfilePage: React.FC = () => {
             title="Lịch sử Voucher"
             prefix={<Icon icon="zi-clock-1" className="text-blue-500" />}
             suffix={<Icon icon="zi-chevron-right" />}
-            onClick={() => console.log('Click history')}
+            // SỬA Ở ĐÂY: Bọc hành động trong handleProtectedAction
+            onClick={() =>
+              handleProtectedAction(() => {
+                console.log('Chuyển trang lịch sử');
+                // navigate('/history');
+              })
+            }
           />
           <List.Item
             title="Quán ăn yêu thích"
             prefix={<Icon icon="zi-heart" className="text-red-500" />}
             suffix={<Icon icon="zi-chevron-right" />}
+            onClick={() =>
+              handleProtectedAction(() => {
+                console.log('Chuyển trang yêu thích');
+              })
+            }
           />
           <List.Item
             title="Địa chỉ đã lưu"
             prefix={<Icon icon="zi-location" className="text-green-500" />}
             suffix={<Icon icon="zi-chevron-right" />}
+            onClick={() =>
+              handleProtectedAction(() => {
+                console.log('Chuyển trang địa chỉ');
+              })
+            }
           />
         </List>
       </div>
@@ -1117,15 +1567,24 @@ const ProfilePage: React.FC = () => {
       <div className="bg-white">
         <Text.Header className="px-4 py-3 text-gray-500">Hệ thống</Text.Header>
         <List>
-          <List.Item
-            title="Cài đặt"
-            prefix={<Icon icon="zi-setting" className="text-gray-500" />}
-            suffix={<Icon icon="zi-chevron-right" />}
-          />
+          {/* Nút Đăng xuất chỉ hiện khi ĐÃ có user (vì chưa có user thì không logout được) */}
+          {user && (
+            <List.Item
+              title="Đăng xuất"
+              prefix={<Icon icon="zi-leave" className="text-red-500" />}
+              onClick={(e) => {
+                e.stopPropagation();
+                setUser(null);
+              }}
+            />
+          )}
+
           <List.Item
             title="Hỗ trợ & Liên hệ"
             prefix={<Icon icon="zi-call" className="text-gray-500" />}
             suffix={<Icon icon="zi-chevron-right" />}
+            // Mục này thường không cần login vẫn xem được, nên không cần bọc hàm bảo vệ
+            onClick={() => console.log('Gọi hotline')}
           />
         </List>
       </div>
@@ -1153,14 +1612,14 @@ const VoucherPage: React.FC = () => {
   }, [fetchMyWallet]);
 
   return (
-    <Page className="bg-gray-50 h-full pb-20 pt-20">
+    <Page className="bg-gray-50 h-full pb-20">
       <Header
         title="Ví Voucher của tôi"
-        showBackIcon={false}
+        showBackIcon={true}
         className="text-white shadow-sm bg-orange-500 "
       />
 
-      <Box p={4}>
+      <Box p={4} className="mt-20">
         {loading && <div className="text-center text-gray-400 mt-4">Đang tải ví...</div>}
 
         {!loading && safeVouchers.length === 0 && (
@@ -1259,12 +1718,134 @@ export default VoucherCard;
 
 
 ================================================
+FILE PATH: src\pages\welcome\index.tsx
+================================================
+import React, { useEffect, useState } from 'react';
+import { Page, Button, Text, Icon } from 'zmp-ui';
+import { useNavigate } from 'react-router-dom';
+
+const WelcomePage: React.FC = () => {
+  const navigate = useNavigate();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    setTimeout(() => setVisible(true), 100);
+  }, []);
+
+  const handleContinue = () => {
+    navigate('/home');
+  };
+
+  const BRAND_COLOR = '#D83231';
+
+  return (
+    <Page className="relative flex flex-col h-screen bg-white overflow-y-auto">
+      <div className="relative flex-shrink-0 bg-gradient-to-br from-red-400 via-[#D83231] to-red-900 flex flex-col items-center justify-center pt-20 pb-8 rounded-b-[40px] z-0">
+        <div className="absolute top-0 left-0 w-40 h-40 bg-white opacity-10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-10 right-0 w-32 h-32 bg-orange-300 opacity-20 rounded-full blur-3xl"></div>
+
+        <div
+          className={`transition-all duration-700 transform ${
+            visible ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'
+          } text-center z-10 px-4`}
+        >
+          <h1 className="text-2xl font-extrabold text-white tracking-tight drop-shadow-md leading-tight uppercase">
+            Thái Nguyên <br /> Voucher Maps
+          </h1>
+
+          <div className="mt-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full inline-block border border-white/10">
+            <p className="text-white text-[10px] font-semibold tracking-wide">
+              "Đi đâu cũng có deal, ăn gì cũng tiết kiệm"
+            </p>
+          </div>
+        </div>
+
+        <div
+          className={`mt-6 relative transition-all duration-1000 delay-300 transform ${
+            visible ? 'scale-100 opacity-100' : 'scale-90 opacity-0'
+          }`}
+        >
+          <div className="absolute inset-0 bg-white/20 rounded-full blur-xl scale-110"></div>
+
+          <img
+            src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80"
+            className="w-48 h-48 object-cover rounded-full border-[4px] border-white/40 shadow-2xl relative z-10 animate-[bounce_4s_infinite]"
+            alt="Food Hero"
+          />
+
+          <div className="absolute -right-2 top-8 bg-white/90 backdrop-blur-sm p-1.5 rounded-lg shadow-lg z-20 animate-bounce delay-100 flex items-center gap-1">
+            <span className="text-[10px] font-bold text-[#D83231]">-50%</span>
+          </div>
+          <div className="absolute -left-2 bottom-8 bg-white/90 backdrop-blur-sm p-1.5 rounded-lg shadow-lg z-20 animate-bounce delay-300">
+            <Icon icon="zi-location" className="text-[#D83231] pb-6 text-lg" />
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={`flex-1 bg-white -mt-8 relative z-10 rounded-t-[32px] px-6 pt-4 pb-safe flex flex-col transition-all duration-700 delay-500 transform ${
+          visible ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'
+        }`}
+      >
+        <div className="text-center mb-4 flex-shrink-0">
+          <Text.Title className="text-lg font-bold text-gray-800 uppercase">
+            Khám phá Thái Nguyên
+          </Text.Title>
+          <Text className="text-gray-500 mt-1 text-xs px-2 line-clamp-2">
+            Tìm quán ngon, nhận voucher ưu đãi và tiết kiệm chi phí mỗi ngày.
+          </Text>
+        </div>
+
+        <div className="space-y-3 mb-2 flex-1 overflow-y-auto min-h-0">
+          <FeatureItem
+            icon="zi-location-solid"
+            text="Bản đồ quán ăn phủ sóng toàn TP"
+            color={BRAND_COLOR}
+          />
+          <FeatureItem
+            icon="zi-star-solid"
+            text="Hàng ngàn Voucher độc quyền"
+            color={BRAND_COLOR}
+          />
+          <FeatureItem icon="zi-link" text="Xác thực và liên kết tài khoản" color={BRAND_COLOR} />
+        </div>
+
+        <div className="mt-auto pt-2 pb-4">
+          <Button
+            fullWidth
+            size="large"
+            onClick={handleContinue}
+            className="rounded-xl h-12 text-lg font-bold shadow-lg shadow-red-200 active:scale-95 transition-transform"
+            style={{
+              backgroundColor: BRAND_COLOR,
+              border: 'none',
+            }}
+          >
+            Bắt đầu trải nghiệm
+          </Button>
+        </div>
+      </div>
+    </Page>
+  );
+};
+
+const FeatureItem = ({ icon, text, color }: { icon: string; text: string; color: string }) => (
+  <div className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50 border border-gray-100 hover:bg-red-50 transition-colors">
+    <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0">
+      <Icon icon={icon as any} style={{ color: color }} />
+    </div>
+    <Text className="text-gray-700 font-medium text-sm line-clamp-1">{text}</Text>
+  </div>
+);
+
+export default WelcomePage;
+
+
+================================================
 FILE PATH: src\services\api.ts
 ================================================
-// FILE: src/services/api.ts
 import axios, { AxiosError } from 'axios';
 
-// Thay đổi URL này bằng link Ngrok của bạn hoặc IP máy tính (VD: http://192.168.1.5:3002)
 const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
 const api = axios.create({
@@ -1272,17 +1853,15 @@ const api = axios.create({
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
-    // Header quan trọng để bypass màn hình warning của Ngrok
     'ngrok-skip-browser-warning': 'true',
     'bypass-tunnel-reminder': 'true',
     'X-Requested-With': 'XMLHttpRequest',
   },
 });
 
-// Interceptor: Giúp lấy dữ liệu gọn gàng hơn và xử lý lỗi
 api.interceptors.response.use(
   (response) => {
-    return response.data; // Trả về thẳng body response
+    return response.data;
   },
   (error: AxiosError) => {
     console.error('API Error:', error.response || error.message);
@@ -1298,6 +1877,7 @@ FILE PATH: src\states\state.ts
 ================================================
 import { atom } from 'recoil';
 import { Store } from '@/types/store';
+import { User } from '@/types/user';
 
 export const userLocationState = atom<[number, number]>({
   key: 'userLocationState',
@@ -1324,6 +1904,16 @@ export const selectedStoreState = atom<Store | null>({
   default: null,
 });
 
+export const userState = atom<User | null>({
+  key: 'userState',
+  default: null,
+});
+
+export const userLoadingState = atom<boolean>({
+  key: 'userLoadingState',
+  default: false,
+});
+
 
 ================================================
 FILE PATH: src\types\store.ts
@@ -1333,6 +1923,7 @@ export interface Voucher {
   title: string;
   code: string;
   discount: string;
+  discount_percent?: number;
 }
 
 export interface Store {
@@ -1345,6 +1936,18 @@ export interface Store {
   category?: string;
   vouchers?: Voucher[];
   distance?: number; // Khoảng cách tính toán
+}
+
+
+================================================
+FILE PATH: src\types\user.ts
+================================================
+export interface User {
+  id: string;
+  name: string;
+  avatar: string;
+  zalo_id?: string;
+  is_active?: boolean;
 }
 
 
@@ -1412,7 +2015,7 @@ FILE PATH: tsconfig.json
 ================================================
 FILE PATH: www\app-config.json
 ================================================
-{"app":{"title":"zaui-LoctionVoucher","textColor":{"light":"black","dark":"white"},"statusBar":"transparent","actionBarHidden":true,"hideIOSSafeAreaBottom":true,"hideAndroidBottomNavigationBar":false},"listCSS":["assets/index-B5MLRWyN.css"],"listSyncJS":["assets/index.C9ibGN6u.module.js"],"listAsyncJS":[],"pages":[]}
+{"app":{"title":"zaui-LoctionVoucher","textColor":{"light":"black","dark":"white"},"statusBar":"transparent","actionBarHidden":true,"hideIOSSafeAreaBottom":true,"hideAndroidBottomNavigationBar":false},"listCSS":["assets/index-C2_1Q9_q.css"],"listSyncJS":["assets/index.TXDeWumS.module.js"],"listAsyncJS":[],"pages":[]}
 
 ================================================
 FILE PATH: zmp-cli.json

@@ -3,6 +3,9 @@ export interface Voucher {
   title: string;
   code: string;
   discount: string;
+  end_date: string;
+  type: 'DEFAULT' | 'FLASH_SALE';
+  discount_percent?: number;
 }
 
 export interface Store {

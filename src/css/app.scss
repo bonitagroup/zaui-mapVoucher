@@ -12,3 +12,21 @@
 .zaui-list-item {
   cursor: pointer;
 }
+
+:root {
+  --app-primary: #d83231;
+}
+
+.zaui-header {
+  background-color: var(--app-primary) !important;
+  border-bottom: none !important;
+  height: 80px !important;
+
+  .zaui-header-title {
+    color: white !important;
+  }
+
+  .zaui-icon {
+    color: white !important;
+  }
+}

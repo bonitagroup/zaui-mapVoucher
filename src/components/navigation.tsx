@@ -10,7 +10,7 @@ const CustomBottomNavigation = () => {
       fixed
       activeKey={location.pathname}
       onChange={(key) => navigate(key)}
-      className="z-50"
+      className="z-[2000]"
     >
       <BottomNavigation.Item key="/home" label="Trang chủ" icon={<Icon icon="zi-home" />} />
       <BottomNavigation.Item key="/map" label="Bản đồ" icon={<Icon icon="zi-location" />} />
