@@ -50,16 +50,19 @@ FILE PATH: package.json
     "axios": "^1.13.2",
     "jotai": "^2.12.1",
     "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-icons": "^5.5.0",
     "react-leaflet": "^4.2.1",
+    "react-leaflet-cluster": "^4.0.0",
     "recoil": "^0.7.7",
     "zmp-sdk": "latest",
     "zmp-ui": "latest"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.21",
+    "@types/leaflet.markercluster": "^1.5.6",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
     "@types/react-leaflet": "^2.8.3",
@@ -238,6 +241,8 @@ import VoucherPage from '@/pages/voucher';
 import ProfilePage from '@/pages/profile';
 import WelcomePage from '@/pages/welcome';
 import CustomBottomNavigation from './navigation';
+import StoreDetailPage from '@/pages/store';
+import MyVoucherPage from '@/pages/profile/my-voucher/index';
 
 const Layout = () => {
   const location = useLocation();
@@ -253,6 +258,8 @@ const Layout = () => {
           <Route path="/map" element={<MapPage />} />
           <Route path="/voucher" element={<VoucherPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/store/:id" element={<StoreDetailPage />} />
+          <Route path="/my-voucher" element={<MyVoucherPage />} />
         </Routes>
       </Box>
 
@@ -268,23 +275,50 @@ export default Layout;
 FILE PATH: src\components\navigation.tsx
 ================================================
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BottomNavigation, Icon } from 'zmp-ui';
+import { BottomNavigation } from 'zmp-ui';
+import { FaHome, FaMapMarkedAlt, FaFireAlt, FaUser } from 'react-icons/fa';
 
 const CustomBottomNavigation = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const activeColor = '#d83231';
+  const defaultColor = '#94a3b8';
+
+  const getColor = (path) => {
+    return location.pathname === path ? activeColor : defaultColor;
+  };
 
   return (
     <BottomNavigation
       fixed
       activeKey={location.pathname}
       onChange={(key) => navigate(key)}
-      className="z-50"
+      className="z-[2000]  [&_.zaui-bottom-navigation-item-active]:text-[#d83231]"
     >
-      <BottomNavigation.Item key="/home" label="Trang chủ" icon={<Icon icon="zi-home" />} />
-      <BottomNavigation.Item key="/map" label="Bản đồ" icon={<Icon icon="zi-location" />} />
-      <BottomNavigation.Item key="/voucher" label="Voucher" icon={<Icon icon="zi-star" />} />
-      <BottomNavigation.Item key="/profile" label="Tài khoản" icon={<Icon icon="zi-user" />} />
+      <BottomNavigation.Item
+        key="/home"
+        label="Trang chủ"
+        icon={<FaHome size={24} color={getColor('/home')} />}
+      />
+
+      <BottomNavigation.Item
+        key="/map"
+        label="Bản đồ"
+        icon={<FaMapMarkedAlt size={24} color={getColor('/map')} />}
+      />
+
+      <BottomNavigation.Item
+        key="/voucher"
+        label="Khuyến mãi"
+        icon={<FaFireAlt size={24} color={getColor('/voucher')} />}
+      />
+
+      <BottomNavigation.Item
+        key="/profile"
+        label="Tài khoản"
+        icon={<FaUser size={24} color={getColor('/profile')} />}
+      />
     </BottomNavigation>
   );
 };
@@ -453,6 +487,7 @@ import {
   myVouchersState,
   selectedStoreState,
   userLocationState,
+  flashSaleState,
 } from '@/states/state';
 import { getAccessToken } from 'zmp-sdk';
 import api from '@/services/api';
@@ -463,38 +498,42 @@ export const useStore = () => {
   const [myVouchers, setMyVouchers] = useRecoilState(myVouchersState);
   const [selectedStore, setSelectedStore] = useRecoilState(selectedStoreState);
   const userLocation = useRecoilValue(userLocationState);
-
+  const [flashSales, setFlashSales] = useRecoilState(flashSaleState);
   const [loading, setLoading] = useState(false);
 
-  const fetchNearby = useCallback(async () => {
-    if (!userLocation[0] || !userLocation[1]) return;
+  const fetchNearby = useCallback(
+    async (coords?: { lat: number; lng: number }) => {
+      // 1. Ưu tiên lấy toạ độ truyền vào, nếu không có thì lấy từ state userLocation
+      const lat = coords?.lat || userLocation[0];
+      const lng = coords?.lng || userLocation[1];
 
-    setLoading(true);
-    try {
-      const res: any = await api.get('/api/store/nearby', {
-        params: {
-          lat: userLocation[0],
-          lng: userLocation[1],
-          radius: 10,
-        },
-      });
+      // Nếu cả 2 đều không có dữ liệu hợp lệ thì dừng
+      if (!lat || !lng) return;
 
-      if (res && Array.isArray(res.data)) {
-        setStores(res.data as Store[]);
-      } else {
+      setLoading(true);
+      try {
+        const res: any = await api.get('/api/store/nearby', {
+          params: {
+            lat: lat,
+            lng: lng,
+            radius: 10, // Tìm quanh 10km
+          },
+        });
+
+        if (res && Array.isArray(res.data)) {
+          setStores(res.data as Store[]);
+        } else {
+          setStores([]);
+        }
+      } catch (error) {
+        console.error('Lỗi lấy quán gần đây:', error);
         setStores([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Lỗi lấy quán gần đây:', error);
-      setStores([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userLocation, setStores]);
-
-  useEffect(() => {
-    fetchNearby();
-  }, [fetchNearby]);
+    },
+    [userLocation, setStores]
+  );
 
   const search = useCallback(
     async (keyword: string) => {
@@ -549,26 +588,86 @@ export const useStore = () => {
 
         const res: any = await api.post(
           '/api/store/save',
+          { voucherId: voucherId },
           {
-            voucherId: voucherId,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
+            headers: { Authorization: `Bearer ${accessToken}` },
           }
         );
 
         if (res && res.success) {
           fetchMyWallet();
+          return { success: true, message: 'Lưu thành công!' };
         }
+        return { success: false, message: 'Không thể lưu voucher' };
       } catch (error: any) {
         console.error('Lỗi lưu voucher:', error);
         const msg = error?.response?.data?.error || 'Lỗi hệ thống';
+        return { success: false, message: msg };
       }
     },
     [fetchMyWallet]
   );
+
+  const unsaveVoucher = useCallback(
+    async (voucherId: number) => {
+      try {
+        const accessToken = await getAccessToken({});
+        const res: any = await api.post(
+          '/api/store/unsave',
+          { voucherId },
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        if (res && res.success) {
+          fetchMyWallet();
+          return { success: true };
+        }
+        return { success: false, message: 'Hủy thất bại' };
+      } catch (error: any) {
+        const msg = error?.response?.data?.error || 'Lỗi không thể hủy';
+        return { success: false, message: msg };
+      }
+    },
+    [fetchMyWallet]
+  );
+
+  const useVoucher = useCallback(
+    async (voucherId: number) => {
+      try {
+        const accessToken = await getAccessToken({});
+        const res: any = await api.post(
+          '/api/store/use',
+          { voucherId },
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (res && res.success) {
+          fetchMyWallet();
+          return { success: true };
+        }
+        return { success: false, message: 'Lỗi không xác định' };
+      } catch (error: any) {
+        return { success: false, message: error?.response?.data?.error || 'Lỗi hệ thống' };
+      }
+    },
+    [fetchMyWallet]
+  );
+
+  const fetchFlashSales = useCallback(async () => {
+    try {
+      const accessToken = await getAccessToken({});
+      const res: any = await api.get('/api/store/flash-sale', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (res && Array.isArray(res.data)) {
+        setFlashSales(res.data);
+      }
+    } catch (error) {
+      console.error('Lỗi lấy Flash Sale:', error);
+    }
+  }, [setFlashSales]);
 
   return {
     stores,
@@ -580,6 +679,10 @@ export const useStore = () => {
     search,
     saveVoucher,
     fetchMyWallet,
+    unsaveVoucher,
+    useVoucher,
+    flashSales,
+    fetchFlashSales,
   };
 };
 
@@ -690,11 +793,9 @@ export const useUserInit = () => {
 ================================================
 FILE PATH: src\hooks\useUserLocation.ts
 ================================================
-// FILE: src/hooks/useUserLocation.ts
 import { useEffect, useCallback } from 'react';
 import { useRecoilState } from 'recoil';
-import { login, getLocation, getAccessToken, showToast } from 'zmp-sdk';
-// SỬA: Import api default thay vì import named export cũ
+import { login, getLocation, getAccessToken } from 'zmp-sdk';
 import api from '@/services/api';
 import { userLocationState, locationLoadingState } from '@/states/state';
 
@@ -707,10 +808,8 @@ export const useUserLocation = () => {
     setLoading(true);
 
     try {
-      // 1. Login để lấy phiên làm việc
       await login({});
 
-      // 2. Gọi SDK lấy vị trí từ Zalo (GPS điện thoại)
       const locationRes: any = await new Promise((resolve) => {
         getLocation({
           success: (data) => resolve(data),
@@ -722,21 +821,17 @@ export const useUserLocation = () => {
       const finalLat = latitude || lat;
       const finalLng = longitude || lng;
 
-      // Nếu Zalo trả về luôn toạ độ (Android/iOS mới thường có ngay)
       if (finalLat && finalLng) {
         setPosition([parseFloat(finalLat), parseFloat(finalLng)]);
         return;
       }
 
-      // Nếu Zalo chỉ trả về token (cần giải mã qua Server)
       if (!token) {
         throw new Error('Vui lòng cấp quyền vị trí để sử dụng.');
       }
 
       const accessToken = await getAccessToken({});
 
-      // --- SỬA LỖI TẠI ĐÂY ---
-      // Gọi trực tiếp api.post thay vì hàm getLocationFromBackend cũ
       const data: any = await api.post('/api/zalo/location', {
         accessToken,
         locationToken: token,
@@ -749,16 +844,12 @@ export const useUserLocation = () => {
       }
     } catch (err: any) {
       console.error('Lỗi định vị:', err);
-      // Có thể hiện Toast lỗi nhẹ nhàng
-      // showToast({ message: 'Không lấy được vị trí chính xác', type: 'warning' });
     } finally {
       setLoading(false);
     }
   }, [loading, setPosition, setLoading]);
 
-  // Tự động refresh nếu đang ở toạ độ mặc định (Thái Nguyên)
   useEffect(() => {
-    // Check toạ độ mặc định trong state.ts [21.5864415, 105.8425114]
     if (position[0] === 21.597631 && position[1] === 105.840984) {
       refreshLocation();
     }
@@ -773,6 +864,179 @@ export const useUserLocation = () => {
 
 
 ================================================
+FILE PATH: src\pages\home\FlashSaleList.tsx
+================================================
+import React, { useEffect, useState } from 'react';
+import { Box, Text, Button, Icon, useSnackbar } from 'zmp-ui';
+import { useStore } from '@/hooks/useStore';
+import { useNavigate } from 'react-router-dom';
+
+const FlashSaleItem = ({
+  item,
+  onSave,
+}: {
+  item: any;
+  onSave: (id: number) => Promise<boolean>;
+}) => {
+  const [timeLeft, setTimeLeft] = useState('');
+  const [isSaved, setIsSaved] = useState(Boolean(item.is_saved));
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const calculateTime = () => {
+      const end = new Date(item.end_date).getTime();
+      const now = new Date().getTime();
+      const diff = end - now;
+
+      if (diff <= 0) return 'Đã kết thúc';
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      const h = hours.toString().padStart(2, '0');
+      const m = minutes.toString().padStart(2, '0');
+      const s = seconds.toString().padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    };
+
+    setTimeLeft(calculateTime());
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTime());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [item.end_date]);
+
+  useEffect(() => {
+    setIsSaved(Boolean(item.is_saved));
+  }, [item.is_saved]);
+
+  const handleButtonClick = async () => {
+    if (isSaved) {
+      navigate('/my-voucher');
+      return;
+    }
+
+    setIsLoading(true);
+    const success = await onSave(item.id);
+    setIsLoading(false);
+
+    if (success) {
+      setIsSaved(true);
+    }
+  };
+
+  return (
+    <div className="flex-shrink-0 w-[280px] bg-[#FFF5F1] p-3 rounded-xl border border-orange-100 shadow-sm flex flex-col gap-2 snap-center">
+      <div className="flex items-center gap-2">
+        <div className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+          <Icon icon="zi-poll" size={12} />
+          <span>Giảm {item.discount}</span>
+          <span className="opacity-60">|</span>
+          <span className="font-mono tracking-wide">{timeLeft}</span>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mt-auto">
+        <div className="flex-1 pr-2 min-w-0">
+          <Text className="font-bold text-gray-800 text-sm line-clamp-1">{item.store_name}</Text>
+          <Text size="xxSmall" className="text-gray-500 line-clamp-1">
+            {item.title}
+          </Text>
+          <Text size="xxSmall" className="text-gray-500 mt-1">
+            Còn lại: <span className="text-orange-600 font-bold">{item.quantity}</span>
+          </Text>
+        </div>
+
+        <Button
+          size="small"
+          loading={isLoading}
+          className={`h-8 font-bold rounded-lg text-xs min-w-[80px] shadow-sm active:scale-95 transition-transform ${
+            isSaved
+              ? 'bg-green-600 text-white shadow-green-100'
+              : 'bg-[#D83231] text-white shadow-red-100'
+          }`}
+          onClick={handleButtonClick}
+        >
+          {isSaved ? 'Dùng ngay' : 'Lấy voucher'}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const FlashSaleList = () => {
+  const { flashSales, fetchFlashSales, saveVoucher } = useStore();
+  const navigate = useNavigate();
+  const { openSnackbar } = useSnackbar();
+
+  useEffect(() => {
+    fetchFlashSales();
+  }, [fetchFlashSales]);
+
+  const handleSaveVoucher = async (id: number): Promise<boolean> => {
+    const result: any = await saveVoucher(id);
+
+    if (result.success) {
+      openSnackbar({
+        text: '⚡ ' + result.message,
+        type: 'success',
+        duration: 3000,
+        position: 'top',
+      });
+      return true;
+    } else {
+      openSnackbar({
+        text: '❌ ' + (result.message || 'Lỗi khi lưu voucher'),
+        type: 'error',
+        duration: 3000,
+        position: 'top',
+      });
+      return false;
+    }
+  };
+
+  if (!flashSales || flashSales.length === 0) return null;
+
+  return (
+    <div className="bg-white mb-2 pb-6 pt-2 border-t border-gray-50">
+      <Box px={4} className="flex justify-between items-end mb-3">
+        <div className="flex items-center gap-1">
+          <Text.Title
+            size="normal"
+            className="font-extrabold text-gray-800 uppercase tracking-tight"
+          >
+            ⚡ FLASH SALE
+          </Text.Title>
+          <span className="text-orange-500 font-bold text-sm bg-orange-50 px-1.5 rounded-full border border-orange-100">
+            {flashSales.length}
+          </span>
+        </div>
+
+        <Text
+          size="small"
+          className="text-red-500 font-medium cursor-pointer active:opacity-60 hover:underline"
+          onClick={() => navigate('/voucher')}
+        >
+          Xem tất cả
+        </Text>
+      </Box>
+
+      <div className="flex overflow-x-auto px-4 gap-3 pb-2 scrollbar-hide snap-x">
+        {flashSales.slice(0, 6).map((item) => (
+          <FlashSaleItem key={item.id} item={item} onSave={handleSaveVoucher} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default FlashSaleList;
+
+
+================================================
 FILE PATH: src\pages\home\index.tsx
 ================================================
 import React, { useEffect, useState } from 'react';
@@ -780,15 +1044,17 @@ import { Page, Input, Box, Text, Icon } from 'zmp-ui';
 import { useStore } from '@/hooks/useStore';
 import { useNavigate } from 'react-router-dom';
 import WelcomeHeader from './WelcomeHeader';
-import StoreDetailSheet from '@/components/StoreDetailSheet';
-import { Store } from '@/types/store';
 import TrendingList from './TrendingList';
+import FlashSaleList from './FlashSaleList';
+import { Store } from '@/types/store';
 
 const HomePage: React.FC = () => {
-  const { search, stores, setSelectedStore, loading, fetchNearby } = useStore();
+  const { search, stores, loading, fetchNearby } = useStore();
   const navigate = useNavigate();
+
   const [keyword, setKeyword] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+
   const safeStores = Array.isArray(stores) ? stores : [];
 
   const handleSearch = (text: string) => {
@@ -801,6 +1067,14 @@ const HomePage: React.FC = () => {
     fetchNearby();
   };
 
+  const handleStoreClick = (store: Store) => {
+    navigate(`/store/${store.id}`);
+  };
+
+  useEffect(() => {
+    fetchNearby();
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (keyword.trim()) {
@@ -808,7 +1082,7 @@ const HomePage: React.FC = () => {
       } else if (keyword === '') {
         if (!isSearchFocused) fetchNearby();
       }
-    }, 500);
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, [keyword, search, fetchNearby, isSearchFocused]);
@@ -827,30 +1101,20 @@ const HomePage: React.FC = () => {
         </div>
       </Box>
 
-      <div className="bg-white pb-2 pt-4">
+      <div className="bg-white pb-2 pt-4 rounded-2xl m-2 shadow-sm border border-gray-100">
         <TrendingList stores={safeStores.slice(0, 5)} loading={loading} />
       </div>
 
-      <Box px={4} mt={1}>
-        <div className="flex justify-between items-end pt-6 mb-3 pb-2">
-          <Text.Title size="normal" className="font-bold">
-            Gợi ý quanh đây
-          </Text.Title>
-          <span
-            className="text-xs text-[#D83231] font-bold bg-orange-100 px-6 py-1 rounded-full active:opacity-70"
-            onClick={() => navigate('/map')}
-          >
-            Xem bản đồ &rarr;
-          </span>
-        </div>
+      <div className="bg-white pb-2 pt-4 rounded-2xl m-2 shadow-sm border border-gray-100">
+        <FlashSaleList />
+      </div>
 
-        <StoreListGrid
-          loading={loading}
-          stores={safeStores}
-          setSelectedStore={setSelectedStore}
-          isSearchResult={false}
-        />
-      </Box>
+      <div className="bg-white p-4 pb-2 pt-4 rounded-2xl m-2 shadow-sm border border-gray-100">
+        <Text.Title size="normal" className="font-extrabold text-gray-800 uppercase tracking-tight">
+          Tin tức nổi bật
+        </Text.Title>
+        <div className="text-gray-400 text-sm py-4 text-center">Chưa có tin tức mới</div>
+      </div>
 
       {isSearchFocused && (
         <div className="fixed inset-0 bg-gray-50 z-[9999] flex flex-col animate-[fadeIn_0.2s_ease-in-out]">
@@ -865,7 +1129,8 @@ const HomePage: React.FC = () => {
               Tìm kiếm
             </Text.Title>
           </div>
-          <div className="bg-white p-4  flex items-center gap-3 shadow-sm pt-safe-top">
+
+          <div className="bg-white p-4 flex items-center gap-3 shadow-sm pt-safe-top">
             <div className="flex-1">
               <Input.Search
                 placeholder="Nhập tên quán, món ăn..."
@@ -879,78 +1144,32 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            <Text.Title size="small" className="text-gray-500 mb-3 uppercase font-bold text-xs">
-              {keyword ? `Kết quả cho "${keyword}"` : 'Nhập từ khoá để tìm kiếm'}
-            </Text.Title>
-
-            <StoreListGrid
-              loading={loading}
-              stores={safeStores}
-              setSelectedStore={setSelectedStore}
-              isSearchResult={true}
-            />
-          </div>
-        </div>
-      )}
-
-      <StoreDetailSheet />
-    </Page>
-  );
-};
-
-const StoreListGrid = ({ loading, stores, setSelectedStore, isSearchResult }: any) => {
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center mt-10 space-y-2">
-        <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-        <span className="text-gray-400 text-xs">Đang tải dữ liệu...</span>
-      </div>
-    );
-  }
-
-  if (stores.length === 0) {
-    return (
-      <div className="text-center text-gray-400 mt-10 italic">
-        <div className="text-4xl mb-2">🤔</div>
-        <p>Không tìm thấy quán nào.</p>
-        {isSearchResult && <p className="text-xs">Thử tìm từ khoá khác xem sao!</p>}
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {stores.map((store: Store) => (
-        <div
-          key={store.id}
-          className="bg-white p-3 rounded-xl shadow-sm active:opacity-70 flex flex-col h-full border border-gray-100"
-          onClick={() => setSelectedStore(store)}
-        >
-          <img
-            src={store.image || 'https://via.placeholder.com/150'}
-            className="h-24 w-full object-cover rounded-lg mb-2 bg-gray-100"
-            alt={store.name}
-            onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150')}
-          />
-          <Text className="font-bold line-clamp-1 text-gray-800">{store.name}</Text>
-          <Text size="xxSmall" className="text-gray-500 line-clamp-1 mb-2">
-            {store.address}
-          </Text>
-
-          <div className="mt-auto flex gap-1 overflow-hidden">
-            {store.vouchers && store.vouchers.length > 0 ? (
-              <span className="text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded border border-orange-100 whitespace-nowrap font-medium">
-                Giảm {store.vouchers[0].discount}
-              </span>
-            ) : (
-              <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
-                Chưa có mã
-              </span>
+            {!loading && safeStores.length > 0 && (
+              <div className="grid grid-cols-2 gap-3">
+                {safeStores.map((store: Store) => (
+                  <div
+                    key={store.id}
+                    className="bg-white p-3 rounded-xl shadow-sm active:opacity-70 flex flex-col h-full border border-gray-100"
+                    onClick={() => handleStoreClick(store)}
+                  >
+                    <img
+                      src={store.image || 'https://via.placeholder.com/150'}
+                      className="h-24 w-full object-cover rounded-lg mb-2 bg-gray-100"
+                      alt={store.name}
+                      onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150')}
+                    />
+                    <Text className="font-bold line-clamp-1 text-gray-800">{store.name}</Text>
+                    <Text size="xxSmall" className="text-gray-500 line-clamp-1 mb-2">
+                      {store.address}
+                    </Text>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
-      ))}
-    </div>
+      )}
+    </Page>
   );
 };
 
@@ -958,24 +1177,19 @@ export default HomePage;
 
 
 ================================================
-FILE PATH: src\pages\home\PromotionSlider.tsx
-================================================
-
-
-================================================
 FILE PATH: src\pages\home\TrendingList.tsx
 ================================================
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Text, Box, Icon } from 'zmp-ui';
 import { Store } from '@/types/store';
 import { useNavigate } from 'react-router-dom';
 import { useRecoilValue } from 'recoil';
-import { userState } from '@/states/state';
+import { userState, myVouchersState } from '@/states/state';
+import { FaCrown, FaChevronRight } from 'react-icons/fa';
 
 const TrendingCard = ({ store, onClick }: { store: Store; onClick: () => void }) => {
   const maxDiscount = React.useMemo(() => {
     if (!store.vouchers || store.vouchers.length === 0) return null;
-
     const percentVouchers = store.vouchers.filter((v) => Number(v.discount_percent) > 0);
     if (percentVouchers.length > 0) {
       const max = Math.max(...percentVouchers.map((v) => Number(v.discount_percent)));
@@ -984,15 +1198,14 @@ const TrendingCard = ({ store, onClick }: { store: Store; onClick: () => void })
     return null;
   }, [store.vouchers]);
 
-  const rating = (Math.random() * (5 - 3) + 3).toFixed(1);
-  const reviews = Math.floor(Math.random() * 100);
+  const rating = (Math.random() * (5 - 4) + 4).toFixed(1);
 
   return (
     <div
-      className="flex-shrink-0 w-[140px] flex flex-col bg-white rounded-lg shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden active:opacity-70 transition-opacity"
+      className="flex-shrink-0 w-[150px] flex flex-col bg-white rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-gray-50 overflow-hidden active:scale-[0.98] transition-all duration-300"
       onClick={onClick}
     >
-      <div className="h-[100px] w-full relative bg-gray-200">
+      <div className="h-[150px] w-full relative">
         <img
           src={store.image || 'https://via.placeholder.com/150'}
           className="w-full h-full object-cover"
@@ -1000,41 +1213,39 @@ const TrendingCard = ({ store, onClick }: { store: Store; onClick: () => void })
           onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150')}
         />
         {store.distance !== undefined && (
-          <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded backdrop-blur-sm">
+          <div className="absolute top-2 left-2 bg-black/40 backdrop-blur-md text-white text-[10px] font-medium px-2 py-0.5 rounded-full border border-white/10">
             {store.distance < 1
               ? `${(store.distance * 1000).toFixed(0)}m`
               : `${store.distance.toFixed(1)}km`}
           </div>
         )}
+        {maxDiscount && (
+          <div className="absolute bottom-0 right-0 bg-[#D83231] text-white text-[10px] font-bold px-2 py-1 rounded-tl-lg">
+            Giảm {maxDiscount}
+          </div>
+        )}
       </div>
 
-      <div className="p-2 flex flex-col flex-1">
+      <div className="p-3 flex flex-col flex-1">
         <Text className="font-bold text-sm text-gray-800 line-clamp-1 mb-1">{store.name}</Text>
-
-        <div className="flex items-center gap-1 mb-1">
-          <div className="flex text-yellow-400 text-[10px]">
-            {[...Array(5)].map((_, i) => (
-              <Icon
-                key={i}
-                icon="zi-star-solid"
-                size={10}
-                className={i < Math.round(Number(rating)) ? 'text-yellow-400' : 'text-gray-300'}
-              />
-            ))}
-          </div>
-          <Text size="xxSmall" className="text-gray-400 text-[10px]">
-            {reviews} reviews
-          </Text>
+        <div className="flex items-center gap-1 mb-2">
+          <Icon icon="zi-star-solid" className="text-yellow-400 text-[10px]" />
+          <span className="text-[10px] font-bold text-gray-700">{rating}</span>
+          <span className="text-[10px] text-gray-400">
+            • {(Math.random() * 100).toFixed(0)} đánh giá
+          </span>
         </div>
-
-        <div className="mt-auto flex items-center justify-between">
-          <Text className="text-red-500 font-bold text-xs">
-            {store.distance ? `${store.distance.toFixed(1)}km` : 'Gần đây'}
-          </Text>
-
-          {maxDiscount && (
-            <div className="bg-red-50 text-red-500 text-[10px] font-bold px-1.5 py-0.5 rounded">
-              {maxDiscount}
+        <div className="mt-auto flex flex-wrap flex-col gap-1">
+          {store.vouchers && store.vouchers.length > 0 ? (
+            <>
+              <div className="flex items-center justify-start gap-1 w-[90px] bg-red-50 px-1.5 py-0.5 rounded text-red-500 text-[10px] font-bold border border-red-100">
+                <Icon icon="zi-poll-solid" size={10} />
+                {store.vouchers.length} ưu đãi
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-1 mt-auto">
+              <span className="text-[10px] text-gray-400 italic">Chưa có ưu đãi</span>
             </div>
           )}
         </div>
@@ -1043,52 +1254,191 @@ const TrendingCard = ({ store, onClick }: { store: Store; onClick: () => void })
   );
 };
 
+const StatItem = ({
+  value,
+  label,
+  colorClass,
+  onClick,
+}: {
+  value: number;
+  label: string;
+  colorClass: string;
+  onClick?: () => void;
+}) => (
+  <div
+    className="flex-1 flex flex-col items-center justify-center py-3 cursor-pointer group active:opacity-60 transition-opacity"
+    onClick={onClick}
+  >
+    <Text className={`font-black text-2xl leading-none mb-1 ${colorClass}`}>{value}</Text>
+    <Text size="xxSmall" className="text-gray-500 font-medium tracking-wide">
+      {label}
+    </Text>
+  </div>
+);
+
 const TrendingList = ({ stores, loading }: { stores: any[]; loading: boolean }) => {
   const navigate = useNavigate();
   const user = useRecoilValue(userState);
+  const myVouchers = useRecoilValue(myVouchersState);
 
   const skeletons = [1, 2, 3];
 
+  const stats = useMemo(() => {
+    const list = Array.isArray(myVouchers) ? myVouchers : [];
+    const now = new Date().getTime();
+    const saved = list.filter(
+      (v) => v.status === 'UNUSED' && new Date(v.end_date).getTime() > now
+    ).length;
+    const used = list.filter((v) => v.status === 'USED').length;
+    const expiring = list.filter((v) => {
+      if (v.status !== 'UNUSED') return false;
+      const end = new Date(v.end_date).getTime();
+      const diffHours = (end - now) / (1000 * 60 * 60);
+      return diffHours > 0 && diffHours < 72;
+    }).length;
+    return { saved, used, expiring };
+  }, [myVouchers]);
+
+  const memberPoints = 850;
+  const maxPoints = 1000;
+  const progressPercent = (memberPoints / maxPoints) * 100;
+
   return (
-    <div className="bg-white mb-2 pb-4 pt-2">
-      <Box px={4} mb={4} className="flex gap-3 items-center">
-        <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-100">
-          <img
-            src={user?.avatar || 'https://i.imgur.com/8Km9tLL.png'}
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div>
-          <div className="flex items-center gap-1">
-            <Text className="font-bold text-gray-800 text-lg">
-              Chào {user ? user.name.split(' ').pop() : 'bạn'}! 👋
+    <div className="bg-white mb-2 pb-6 pt-2 rounded-b-[32px] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] border-b border-gray-100 relative z-10">
+      <Box px={4} mb={4} className="flex justify-between items-center mt-2">
+        <div className="flex gap-3 items-center">
+          <div className="w-11 h-11 rounded-full p-0.5 bg-gradient-to-tr from-red-500 to-orange-400">
+            <img
+              src={user?.avatar || 'https://i.imgur.com/8Km9tLL.png'}
+              className="w-full h-full object-cover rounded-full border-2 border-white"
+              alt="avatar"
+            />
+          </div>
+          <div>
+            <div className="flex items-center gap-1">
+              <Text className="font-extrabold text-gray-800 text-lg">
+                Chào {user ? user.name.split(' ').pop() : 'bạn'}!
+              </Text>
+              <span className="text-xl">👋</span>
+            </div>
+            <Text
+              size="xxSmall"
+              className="text-gray-500 font-medium bg-gray-100 px-2 py-0.5 rounded-full inline-block mt-0.5"
+            >
+              Thành viên thân thiết
             </Text>
           </div>
-          <Text size="small" className="text-gray-500">
-            Bạn muốn ăn gì hôm nay?
-          </Text>
+        </div>
+        <div
+          className="w-9 h-9 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 active:bg-gray-200"
+          onClick={() => navigate('/profile')}
+        >
+          <Icon icon="zi-chevron-right" />
         </div>
       </Box>
 
-      <Box px={4} className="flex justify-between items-end mb-3">
-        <Text.Title size="normal" className="font-extrabold text-gray-800 uppercase tracking-tight">
-          ĐANG HOT GẦN BẠN
-        </Text.Title>
-        <Text
-          size="small"
-          className="text-red-500 font-medium cursor-pointer active:opacity-60"
-          onClick={() => navigate('/map')}
+      <Box px={4} mb={5}>
+        <div
+          className="w-full relative overflow-hidden rounded-2xl p-5 shadow-xl shadow-orange-500/20 active:scale-[0.99] transition-transform"
+          style={{
+            background: 'linear-gradient(120deg, #F6B025 0%, #E86F21 100%)',
+          }}
+          onClick={() => navigate('/profile')}
         >
-          Xem tất cả
-        </Text>
+          <div className="absolute -right-8 -top-8 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+          <div className="absolute -left-4 bottom-0 w-24 h-24 bg-yellow-300 opacity-20 rounded-full blur-xl"></div>
+
+          <div className="relative z-10">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <FaCrown className="text-white drop-shadow-sm" />
+                  <Text className="text-white font-bold text-lg tracking-wide uppercase drop-shadow-md">
+                    Hạng Vàng
+                  </Text>
+                </div>
+              </div>
+              <div className="text-right flex flex-wrap">
+                <Text className="text-white font-black text-2xl leading-none drop-shadow-md">
+                  {memberPoints}
+                </Text>
+              </div>
+            </div>
+            <div className="w-full h-1.5 bg-black/10 rounded-full mt-4 mb-2 backdrop-blur-sm overflow-hidden border border-white/10">
+              <div
+                className="h-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)] rounded-full transition-all duration-1000"
+                style={{ width: `${progressPercent}%` }}
+              ></div>
+            </div>
+            <div className="flex justify-between items-center">
+              <Text size="xxSmall" className="text-white/90 font-medium">
+                Mục tiêu: {maxPoints} điểm
+              </Text>
+              <Text size="xxSmall" className="text-white font-bold flex items-center gap-1">
+                Xem ưu đãi <FaChevronRight size={10} />
+              </Text>
+            </div>
+          </div>
+        </div>
       </Box>
 
-      <div className="flex overflow-x-auto px-4 gap-3 pb-2 scrollbar-hide snap-x">
+      <Box px={4} mb={6}>
+        <div className="bg-white rounded-2xl p-3 shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-gray-50">
+          <div className="flex items-center justify-between mb-2 border-b border-gray-50 pb-2 px-1">
+            <Text.Title
+              size="small"
+              className="font-bold text-gray-800 uppercase text-xs tracking-wider"
+            >
+              Ví Voucher
+            </Text.Title>
+            <Text
+              size="xxSmall"
+              className="text-[#D83231] font-bold cursor-pointer"
+              onClick={() => navigate('/my-voucher')}
+            >
+              Xem tất cả
+            </Text>
+          </div>
+
+          <div className="flex divide-x divide-gray-100">
+            <StatItem
+              value={stats.saved}
+              label="Khả dụng"
+              colorClass="text-[#D83231]"
+              onClick={() => navigate('/my-voucher')}
+            />
+            <StatItem value={stats.used} label="Đã dùng" colorClass="text-green-600" />
+            <StatItem value={stats.expiring} label="Sắp hết" colorClass="text-orange-500" />
+          </div>
+        </div>
+      </Box>
+
+      <Box px={4} className="flex justify-between items-end mb-4">
+        <div className="flex flex-col">
+          <Text.Title
+            size="large"
+            className="font-black text-gray-800 uppercase italic tracking-tighter flex items-center gap-2"
+          >
+            HOT GẦN BẠN <span className="text-2xl not-italic">🔥</span>
+          </Text.Title>
+          <Text size="xxSmall" className="text-gray-400">
+            Các địa điểm được yêu thích nhất
+          </Text>
+        </div>
+        <div
+          className="flex items-center gap-1 text-gray-500 text-xs font-medium bg-gray-100 px-3 py-1.5 rounded-full active:bg-gray-200 transition-colors"
+          onClick={() => navigate('/map')}
+        >
+          Xem tất cả <FaChevronRight size={10} />
+        </div>
+      </Box>
+
+      <div className="flex overflow-x-auto px-4 gap-4 pb-4 scrollbar-hide snap-x">
         {loading ? (
           skeletons.map((i) => (
             <div
               key={i}
-              className="flex-shrink-0 w-[140px] h-[180px] bg-gray-100 rounded-lg animate-pulse"
+              className="flex-shrink-0 w-[150px] h-[200px] bg-gray-100 rounded-xl animate-pulse"
             />
           ))
         ) : stores && stores.length > 0 ? (
@@ -1096,14 +1446,13 @@ const TrendingList = ({ stores, loading }: { stores: any[]; loading: boolean }) 
             <TrendingCard
               key={store.id}
               store={store}
-              onClick={() => {
-                console.log('Click quán:', store.name);
-              }}
+              onClick={() => navigate(`/store/${store.id}`)}
             />
           ))
         ) : (
-          <div className="text-gray-400 text-sm italic w-full text-center py-4">
-            Chưa có quán nào quanh đây
+          <div className="w-full py-8 flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200 mx-4">
+            <Icon icon="zi-location" className="mb-2 text-2xl opacity-50" />
+            <Text size="small">Chưa có quán nào quanh đây</Text>
           </div>
         )}
       </div>
@@ -1143,98 +1492,449 @@ export default WelcomeHeader;
 ================================================
 FILE PATH: src\pages\map\index.tsx
 ================================================
-import React from 'react';
-import { Page } from 'zmp-ui';
-import MapViewComponent from './MapContainer';
-import StoreDetailSheet from '@/components/StoreDetailSheet';
+import React, { useEffect, useState, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import L from 'leaflet';
+import { Icon, Box } from 'zmp-ui';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import { useStore } from '@/hooks/useStore';
 import { Store } from '@/types/store';
+import { getStorePin } from './utils/mapHelpers';
+import { MapController, ResizeMapListener } from './MapControls';
+import MapSearchBar from './MapSearchBar';
+import StoreBottomSheet from './StoreBottomSheet';
 
-// Component hiển thị từng dòng quán ăn
-const RestaurantItem = ({ data }: { data: Store }) => (
-  <div className="flex bg-white p-3 rounded-lg shadow-sm mb-2 border-l-4 border-orange-500 active:opacity-70 transition-opacity">
-    <div className="flex-1">
-      <h4 className="font-bold text-gray-800">{data.name}</h4>
-      <p className="text-xs text-gray-500 line-clamp-1">{data.address}</p>
-    </div>
-    {data.vouchers && data.vouchers[0] && (
-      <div className="flex items-center ml-2">
-        <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">
-          {data.vouchers[0].discount}
-        </span>
-      </div>
-    )}
-  </div>
-);
+const MapViewComponent: React.FC = () => {
+  const { position, refreshLocation, loading: locLoading } = useUserLocation();
+  const { stores, fetchNearby, selectedStore, setSelectedStore } = useStore();
 
-const MapPage: React.FC = () => {
-  const { stores, setSelectedStore } = useStore();
+  const [keyword, setKeyword] = useState('');
+  const [targetZoom, setTargetZoom] = useState(16);
+  const [isSheetCollapsed, setIsSheetCollapsed] = useState(false);
 
-  // --- SỬA LỖI TẠI ĐÂY ---
-  // Nếu stores là null hoặc undefined -> Dùng mảng rỗng []
-  const safeStores = stores || [];
+  useEffect(() => {
+    if (!position[0] || !position[1]) return;
+    const timer = setTimeout(() => {
+      if (fetchNearby) fetchNearby();
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [position, fetchNearby]);
+
+  const filteredStores = useMemo(() => {
+    if (!stores) return [];
+    if (!keyword.trim()) return stores;
+    const lowerKeyword = keyword.toLowerCase();
+    return stores.filter(
+      (s) =>
+        s.name.toLowerCase().includes(lowerKeyword) ||
+        (s.category && s.category.toLowerCase().includes(lowerKeyword)) ||
+        (s.vouchers && s.vouchers.some((v: any) => v.title.toLowerCase().includes(lowerKeyword)))
+    );
+  }, [stores, keyword]);
 
   return (
-    <Page className="flex flex-col h-full bg-white">
-      {/* Phần 1: Bản đồ */}
-      <MapViewComponent />
+    <Box className="w-full h-full relative bg-gray-100 flex flex-col">
+      <style>{`.custom-pin-icon { background: none; border: none; }`}</style>
 
-      {/* Phần 2: List quán ăn bên dưới */}
-      <div className="flex-1 bg-gray-50 -mt-4 rounded-t-3xl z-10 relative shadow-inner p-4 overflow-y-auto pb-20">
-        <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
-        <h3 className="font-bold text-lg mb-3 text-orange-600">Địa điểm quanh đây</h3>
+      <MapSearchBar keyword={keyword} setKeyword={setKeyword} />
 
-        {/* Render danh sách an toàn */}
-        {safeStores.length > 0 ? (
-          safeStores.map((store) => (
-            <div key={store.id} onClick={() => setSelectedStore(store)}>
-              <RestaurantItem data={store} />
-            </div>
-          ))
-        ) : (
-          <div className="text-center text-gray-400 mt-10">
-            <p>Đang tìm quán...</p>
-            <p className="text-xs">(Hoặc chưa có quán nào quanh đây)</p>
-          </div>
-        )}
-      </div>
+      <Box className="absolute inset-0 z-0">
+        <MapContainer
+          center={position}
+          zoom={18}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={false}
+        >
+          <TileLayer url="http://mt0.google.com/vt/lyrs=m&hl=vi&x={x}&y={y}&z={z}" />
 
-      <StoreDetailSheet />
-    </Page>
+          <ResizeMapListener isSheetCollapsed={isSheetCollapsed} />
+
+          <MapController
+            center={position}
+            selectedStore={selectedStore}
+            filteredStores={filteredStores}
+            targetZoom={targetZoom}
+            keyword={keyword}
+          />
+
+          <Marker
+            position={position}
+            icon={L.icon({
+              iconUrl: 'https://cdn-icons-png.flaticon.com/512/9356/9356230.png',
+              iconSize: [40, 40],
+              iconAnchor: [20, 40],
+            })}
+          />
+
+          <MarkerClusterGroup chunkedLoading showCoverageOnHover={false} maxClusterRadius={10}>
+            {filteredStores.map((store: Store) => {
+              if (!store.lat || !store.lng) return null;
+              return (
+                <Marker
+                  key={store.id}
+                  position={[store.lat, store.lng]}
+                  icon={getStorePin(store)}
+                  eventHandlers={{
+                    click: () => {
+                      setTargetZoom(18);
+                      setSelectedStore(store);
+                      setIsSheetCollapsed(false);
+                    },
+                  }}
+                />
+              );
+            })}
+          </MarkerClusterGroup>
+        </MapContainer>
+
+        <Box className="absolute right-4 bottom-2/4 z-[999]">
+          <button
+            onClick={refreshLocation}
+            className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-red-500 active:scale-90 transition-transform"
+          >
+            {locLoading ? (
+              <div className="w-4 h-4 border-2 border-red-500 border-t-transparent animate-spin rounded-full"></div>
+            ) : (
+              <Icon icon="zi-location-solid" />
+            )}
+          </button>
+        </Box>
+      </Box>
+
+      <StoreBottomSheet
+        isSheetCollapsed={isSheetCollapsed}
+        setIsSheetCollapsed={setIsSheetCollapsed}
+        selectedStore={selectedStore}
+        setSelectedStore={setSelectedStore}
+        keyword={keyword}
+        filteredStores={filteredStores}
+        setTargetZoom={setTargetZoom}
+      />
+    </Box>
   );
 };
 
-export default MapPage;
+export default MapViewComponent;
 
 
 ================================================
-FILE PATH: src\pages\map\MapContainer.tsx
+FILE PATH: src\pages\map\MapControls.tsx
 ================================================
-import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { useEffect } from 'react';
+import { useMap } from 'react-leaflet';
+import L from 'leaflet';
+import { Store } from '@/types/store';
+
+export const MapController = ({
+  center,
+  selectedStore,
+  filteredStores,
+  targetZoom,
+  keyword,
+}: {
+  center: [number, number];
+  selectedStore: Store | null;
+  filteredStores: Store[];
+  targetZoom: number;
+  keyword: string;
+}) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (keyword && filteredStores.length > 0 && !selectedStore) {
+      const validPoints = filteredStores.filter((s) => s.lat && s.lng);
+      if (validPoints.length > 0) {
+        const bounds = L.latLngBounds(validPoints.map((s) => [s.lat, s.lng]));
+        map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 16, duration: 1.5 });
+      }
+    }
+  }, [keyword, filteredStores, map, selectedStore]);
+
+  useEffect(() => {
+    if (selectedStore && selectedStore.lat && selectedStore.lng) {
+      map.flyTo([selectedStore.lat, selectedStore.lng], targetZoom, {
+        animate: true,
+        duration: 1.2,
+      });
+    }
+  }, [selectedStore, targetZoom, map]);
+
+  useEffect(() => {
+    if (!selectedStore && !keyword && center[0] && center[1]) {
+      map.flyTo(center, 16, { animate: true, duration: 1.5 });
+    }
+  }, [center]);
+
+  return null;
+};
+
+export const ResizeMapListener = ({ isSheetCollapsed }: { isSheetCollapsed: boolean }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 310);
+
+    return () => clearTimeout(timer);
+  }, [isSheetCollapsed, map]);
+
+  return null;
+};
+
+
+================================================
+FILE PATH: src\pages\map\MapSearchBar.tsx
+================================================
+import React from 'react';
+import { Box, Input, Text as ZText } from 'zmp-ui';
+
+interface MapSearchBarProps {
+  keyword: string;
+  setKeyword: (val: string) => void;
+}
+
+const MapSearchBar: React.FC<MapSearchBarProps> = ({ keyword, setKeyword }) => {
+  return (
+    <Box className="absolute top-0 left-0 mt-3 right-0 z-[1000] p-4 flex flex-col gap-3 pointer-events-none">
+      <Box className="bg-white rounded-xl shadow-md pointer-events-auto flex items-center pr-2">
+        <Input.Search
+          placeholder="Tìm món lẩu, nướng..."
+          className="border-none h-11 flex-1"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          clearable
+        />
+      </Box>
+      <Box className="flex gap-2 pointer-events-auto overflow-x-auto scrollbar-hide">
+        <Box className="bg-white px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 border border-gray-100">
+          <Box className="w-2.5 h-2.5 rounded-full bg-green-700 animate-pulse"></Box>
+          <ZText size="xSmall" className="font-bold text-gray-700">
+            sức khỏe
+          </ZText>
+        </Box>
+        <Box className="bg-white px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 border border-gray-100">
+          <Box className="w-2.5 h-2.5 rounded-full bg-red-500"></Box>
+          <ZText size="xSmall" className="font-bold text-gray-700">
+            ăn uống
+          </ZText>
+        </Box>
+        <Box className="bg-white px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 border border-gray-100">
+          <Box className="w-2.5 h-2.5 rounded-full bg-pink-500"></Box>
+          <ZText size="xSmall" className="font-bold text-gray-700">
+            dịch vụ
+          </ZText>
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
+export default MapSearchBar;
+
+
+================================================
+FILE PATH: src\pages\map\StoreBottomSheet.tsx
+================================================
+import React, { useState, useEffect } from 'react';
+import { Box, Icon, Button, Text as ZText } from 'zmp-ui'; // Đã thêm ZText
+import { Store } from '@/types/store';
+import { useNavigate } from 'react-router-dom';
+import { FaDirections, FaStar, FaRegClock } from 'react-icons/fa';
+
+interface StoreBottomSheetProps {
+  isSheetCollapsed: boolean;
+  setIsSheetCollapsed: (val: boolean) => void;
+  selectedStore: Store | null;
+  setSelectedStore: (store: Store | null) => void;
+  keyword: string;
+  filteredStores: Store[];
+  setTargetZoom: (zoom: number) => void;
+}
+
+const StoreBottomSheet: React.FC<StoreBottomSheetProps> = ({
+  selectedStore,
+  setSelectedStore,
+  filteredStores,
+  setTargetZoom,
+}) => {
+  const navigate = useNavigate();
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    if (selectedStore) {
+      setIsVisible(true);
+    }
+  }, [selectedStore]);
+
+  const StoreCard = ({ store }: { store: Store }) => {
+    // 1. KHAI BÁO BIẾN hasFlashSale
+    const hasFlashSale = store.vouchers?.some((v: any) => v.type === 'FLASH_SALE');
+
+    return (
+      <div
+        className="bg-white rounded-2xl p-4 mb-5 shadow-xl border border-gray-100 flex flex-col h-max w-[55vw] max-w-[300px] shrink-0 snap-center relative"
+        onClick={() => {
+          setTargetZoom(18);
+          setSelectedStore(store);
+        }}
+      >
+        <div className="relative w-full h-36 rounded-xl overflow-hidden mb-3 group shrink-0">
+          <img
+            src={store.image || 'https://via.placeholder.com/400x200'}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            alt={store.name}
+            onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/400x200')}
+          />
+
+          <Box className="absolute top-2 left-2 flex flex-col gap-1 items-start z-10">
+            {hasFlashSale && (
+              <ZText className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                <Icon icon="zi-poll" size={10} /> Flash Sale
+              </ZText>
+            )}
+            {store.vouchers && store.vouchers.length > 0 && !hasFlashSale && (
+              <ZText className="bg-white/95 text-red-500 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-100 shadow-sm">
+                {store.vouchers.length} voucher
+              </ZText>
+            )}
+          </Box>
+          {selectedStore?.id === store.id && (
+            <div className="absolute inset-0 border-2 border-[#D83231] rounded-xl pointer-events-none z-20"></div>
+          )}
+        </div>
+
+        <div className="flex-1 flex flex-col">
+          <h3 className="font-extrabold text-base text-gray-900 line-clamp-1 mb-1">{store.name}</h3>
+
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-0.5">
+              <FaStar className="text-yellow-400 text-xs" />
+              <span className="text-xs font-bold text-gray-800">4.8</span>
+            </div>
+            <span className="text-gray-300 text-xs">|</span>
+            <span className="text-xs text-gray-500 line-clamp-1 flex-1">
+              0 đánh giá • {store.distance ? `${store.distance.toFixed(1)}km` : '25m'}
+            </span>
+          </div>
+
+          <div className="text-xs text-gray-500 line-clamp-1 mb-3">{store.address}</div>
+
+          <div className="mt-auto flex items-center gap-2">
+            <Button
+              className="flex-1 bg-[#d83231] hover:bg-[#d12323] active:bg-[#a81b1b] text-white font-bold rounded-lg h-9 text-xs shadow-md shadow-pink-100 border-none"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/store/${store.id}`);
+              }}
+            >
+              Xem chi tiết
+            </Button>
+
+            <div
+              className="w-9 h-9 flex items-center justify-center border border-red-100 bg-red-50 rounded-lg text-[#ea4c62] active:scale-95 transition-transform"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('Chỉ đường...');
+              }}
+            >
+              <FaDirections size={16} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div
+        className={`fixed left-4 z-[999] transition-all duration-300 ${
+          isVisible ? 'bottom-[370px]' : 'bottom-[60px]'
+        }`}
+      >
+        <button
+          onClick={() => setIsVisible(!isVisible)}
+          className={`
+            flex items-center gap-2 px-4 py-2 rounded-full shadow-lg font-bold text-sm transition-all border border-gray-100
+            ${
+              isVisible
+                ? 'bg-white text-gray-700 hover:bg-gray-50'
+                : 'bg-[#ea4c62] text-white hover:bg-[#d43f54]'
+            }
+          `}
+        >
+          <Icon icon={isVisible ? 'zi-chevron-down' : 'zi-chevron-up'} size={18} />
+          <span>{isVisible ? 'Ẩn' : 'Hiện'}</span>
+        </button>
+      </div>
+
+      <Box
+        className={`
+          fixed bottom-0 left-0 right-0 z-[1000] pb-safe
+          transition-transform duration-300 ease-in-out
+          ${isVisible ? 'translate-y-0' : 'translate-y-[120%]'}
+        `}
+      >
+        <div className="flex overflow-x-auto gap-3 px-4 pb-6 pt-2 snap-x scrollbar-hide">
+          {filteredStores.length === 0 ? (
+            <div className="w-full bg-white rounded-xl p-4 text-center shadow-lg mx-auto border border-gray-100">
+              <span className="text-gray-500 text-sm">Không tìm thấy quán nào ở khu vực này</span>
+            </div>
+          ) : (
+            filteredStores.map((store) => <StoreCard key={store.id} store={store} />)
+          )}
+
+          <div className="w-2 shrink-0"></div>
+        </div>
+      </Box>
+    </>
+  );
+};
+
+export default StoreBottomSheet;
+
+
+================================================
+FILE PATH: src\pages\map\utils\mapHelpers.tsx
+================================================
+import React from 'react';
 import L from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import { GiCampCookingPot, GiNoodles, GiCoffeeCup, GiTeapot } from 'react-icons/gi';
-import { FaBowlRice } from 'react-icons/fa6';
-import { IoFastFoodOutline } from 'react-icons/io5';
+import { TbMeat } from 'react-icons/tb'; // Ăn uống
+import { GiHealthNormal } from 'react-icons/gi'; // Sức khỏe
+import { MdRoomService } from 'react-icons/md'; // Dịch vụ
+import { RiDrinks2Fill } from 'react-icons/ri'; // Đồ uống
 
-import { useUserLocation } from '@/hooks/useUserLocation';
-import { useStore } from '@/hooks/useStore';
-import { Icon } from 'zmp-ui';
 import { Store } from '@/types/store';
-import bbq from '@/static/grill.png';
 
-const createCustomPin = (color: string, content: React.ReactNode | string) => {
+export const createCustomPin = (color: string, content: React.ReactNode | string) => {
   const iconSize = 46;
-
   let innerHtml = '';
-  if (typeof content === 'string' && (content.startsWith('http') || content.startsWith('/'))) {
+
+  if (
+    typeof content === 'string' &&
+    (content.startsWith('http') || content.startsWith('/') || content.startsWith('data:'))
+  ) {
     innerHtml = `<img src="${content}" style="width: 22px; height: 22px; object-fit: contain;" />`;
   } else {
     innerHtml = renderToStaticMarkup(
-      <div style={{ color: color, fontSize: '22px', display: 'flex' }}>{content}</div>
+      <div
+        style={{
+          color: color,
+          fontSize: '22px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {content}
+      </div>
     );
   }
 
@@ -1261,332 +1961,400 @@ const createCustomPin = (color: string, content: React.ReactNode | string) => {
   });
 };
 
-const PIN_COLORS = {
-  FOOD: '#FF5722',
-  DRINK: '#009688',
-  SNACK: '#9C27B0',
-  COFFEE: '#795548',
-  DEFAULT: '#607D8B',
-};
+export const getCategoryContent = (category: string | undefined) => {
+  if (!category) return <TbMeat className="text-slate-600" />;
 
-const Icons = {
-  User: L.icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/9356/9356230.png',
-    iconSize: [40, 40],
-    iconAnchor: [20, 40],
-  }),
-
-  Hotpot: createCustomPin(PIN_COLORS.FOOD, <GiCampCookingPot className="text-slate-600" />), // Lẩu
-  BBQ: createCustomPin(PIN_COLORS.FOOD, bbq), // Nướng (Dùng ảnh ngoài)
-  Rice: createCustomPin(PIN_COLORS.FOOD, <FaBowlRice className="text-slate-600" />), // Cơm
-  Noodles: createCustomPin(PIN_COLORS.FOOD, <GiNoodles className="text-slate-600" />), // Bún/Phở
-  FastFood: createCustomPin(PIN_COLORS.FOOD, <IoFastFoodOutline className="text-slate-600" />), // Đồ ăn nhanh
-
-  MilkTea: createCustomPin(
-    PIN_COLORS.DRINK,
-    'https://cdn-icons-png.flaticon.com/512/3081/3081162.png'
-  ),
-  Tea: createCustomPin(PIN_COLORS.DRINK, <GiTeapot className="text-slate-600" />), // Trà
-  Coffee: createCustomPin(PIN_COLORS.COFFEE, <GiCoffeeCup className="text-slate-600" />), // Cafe
-
-  Snack: createCustomPin(
-    PIN_COLORS.SNACK,
-    'https://cdn-icons-png.flaticon.com/512/2515/2515183.png'
-  ),
-  Default: createCustomPin(PIN_COLORS.DEFAULT, <IoFastFoodOutline className="text-slate-600" />),
-};
-
-const getStoreIcon = (category: string | undefined) => {
-  if (!category) return Icons.Default;
   const cat = category.toLowerCase();
 
-  if (cat.includes('lẩu') || cat.includes('hotpot')) return Icons.Hotpot;
-  if (cat.includes('nướng') || cat.includes('bbq')) return Icons.BBQ;
-  if (cat.includes('cơm') || cat.includes('rice')) return Icons.Rice;
-  if (cat.includes('bún') || cat.includes('phở') || cat.includes('mì')) return Icons.Noodles;
-  if (cat.includes('fastfood') || cat.includes('gà rán') || cat.includes('pizza'))
-    return Icons.FastFood;
+  if (
+    cat.includes('drink') ||
+    cat.includes('coffee') ||
+    cat.includes('cà phê') ||
+    cat.includes('tea') ||
+    cat.includes('trà') ||
+    cat.includes('milktea')
+  ) {
+    return <RiDrinks2Fill className="text-[#597718]" />;
+  }
 
-  if (cat.includes('trà sữa') || cat.includes('milktea')) return Icons.MilkTea;
-  if (cat.includes('cà phê') || cat.includes('coffee')) return Icons.Coffee;
-  if (cat.includes('trà') || cat.includes('tea')) return Icons.Tea;
+  if (
+    cat.includes('health') ||
+    cat.includes('spa') ||
+    cat.includes('massage') ||
+    cat.includes('dental') ||
+    cat.includes('nha khoa') ||
+    cat.includes('sức khỏe') ||
+    cat.includes('thẩm mỹ')
+  ) {
+    return <GiHealthNormal className="text-[#EF4444]" />;
+  }
 
-  if (cat.includes('vặt') || cat.includes('snack')) return Icons.Snack;
+  if (
+    cat.includes('service') ||
+    cat.includes('hotel') ||
+    cat.includes('motel') ||
+    cat.includes('khách sạn') ||
+    cat.includes('nhà nghỉ') ||
+    cat.includes('dịch vụ')
+  ) {
+    return <MdRoomService className="text-[#e68d27]" />;
+  }
 
-  return Icons.Default;
+  return <TbMeat className="text-[#AF672D]" />;
 };
 
-const MapUpdater = ({ center }: { center: [number, number] }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (center[0] !== 0 && center[1] !== 0) {
-      map.flyTo(center, 14, { animate: true, duration: 1.5 });
-    }
-  }, [center, map]);
-  return null;
+const getCategoryColor = (category: string | undefined) => {
+  if (!category) return '#EF4444';
+
+  const cat = category.toLowerCase();
+
+  if (
+    cat.includes('health') ||
+    cat.includes('spa') ||
+    cat.includes('massage') ||
+    cat.includes('dental') ||
+    cat.includes('nha khoa') ||
+    cat.includes('sức khỏe') ||
+    cat.includes('thẩm mỹ')
+  ) {
+    return '#00A300';
+  }
+
+  if (
+    cat.includes('service') ||
+    cat.includes('hotel') ||
+    cat.includes('motel') ||
+    cat.includes('khách sạn') ||
+    cat.includes('nhà nghỉ') ||
+    cat.includes('dịch vụ')
+  ) {
+    return '#0f80e9';
+  }
+
+  return '#B4000F';
 };
 
-const MapViewComponent: React.FC = () => {
-  const { position, refreshLocation, loading: locLoading } = useUserLocation();
-  const { stores, fetchNearby, setSelectedStore } = useStore();
+export const getStorePin = (store: Store) => {
+  const pinColor = getCategoryColor(store.category);
 
-  useEffect(() => {
-    if (position[0] && position[1]) {
-      if (fetchNearby) fetchNearby();
-    }
-  }, [position, fetchNearby]);
+  const iconContent = getCategoryContent(store.category);
 
-  return (
-    <div className="w-full h-[60vh] z-0 relative bg-gray-100">
-      <style>
-        {`
-          .custom-pin-icon { background: none; border: none; }
-          .loader {
-            border: 2px solid #f3f3f3; border-top: 2px solid #fff;
-            border-radius: 50%; width: 16px; height: 16px;
-            animation: spin 1s linear infinite;
-          }
-          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        `}
-      </style>
-
-      <div className="absolute bottom-4 right-4 z-[9999]">
-        <button
-          onClick={refreshLocation}
-          disabled={locLoading}
-          className="bg-orange-500 hover:bg-orange-600 text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-all"
-        >
-          {locLoading ? (
-            <div className="loader"></div>
-          ) : (
-            <Icon icon="zi-location-solid" size={24} />
-          )}
-        </button>
-      </div>
-
-      <MapContainer
-        center={position}
-        zoom={13}
-        style={{ height: '100%', width: '100%' }}
-        zoomControl={false}
-      >
-        <TileLayer
-          url="http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}"
-          attribution="&copy; Google Maps"
-        />
-        <MapUpdater center={position} />
-
-        <Marker position={position} icon={Icons.User}>
-          <Popup>📍 Bạn đang ở đây</Popup>
-        </Marker>
-
-        {stores &&
-          stores.map((store: Store) => {
-            if (!store.lat || !store.lng) return null;
-            return (
-              <Marker
-                key={store.id}
-                position={[store.lat, store.lng]}
-                icon={getStoreIcon(store.category)}
-                eventHandlers={{
-                  click: () => setSelectedStore(store),
-                }}
-              />
-            );
-          })}
-      </MapContainer>
-    </div>
-  );
+  return createCustomPin(pinColor, iconContent);
 };
-
-export default MapViewComponent;
-
-
-================================================
-FILE PATH: src\pages\map\RestaurantList.tsx
-================================================
 
 
 ================================================
 FILE PATH: src\pages\profile\index.tsx
 ================================================
-import React, { useEffect, useState, useCallback } from 'react';
-import { Page, Header, List, Icon, Avatar, Box, Text } from 'zmp-ui';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Page, Icon, Text, Avatar } from 'zmp-ui';
 import { useRecoilState } from 'recoil';
 import { userState } from '@/states/state';
+import { useStore } from '@/hooks/useStore';
 import { getUserInfo, getAccessToken } from 'zmp-sdk';
 import api from '@/services/api';
+import { useNavigate } from 'react-router-dom';
+import { FaCrown, FaMapMarkerAlt } from 'react-icons/fa';
+import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
 
 const ProfilePage: React.FC = () => {
   const [user, setUser] = useRecoilState(userState);
+  const { myVouchers, fetchMyWallet } = useStore();
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  // --- HÀM 1: XỬ LÝ ĐỒNG BỘ USER (LOGIN) ---
   const handleSyncUser = useCallback(async () => {
     if (loading || user) return;
-
     setLoading(true);
     try {
-      const { userInfo } = await getUserInfo({
-        autoRequestPermission: true,
-        avatarType: 'normal',
-      });
-
+      const { userInfo } = await getUserInfo({ autoRequestPermission: true, avatarType: 'normal' });
       if (userInfo) {
         try {
           const token = await getAccessToken({});
           await api.post(
             '/api/user/sync',
-            {
-              name: userInfo.name,
-              avatar: userInfo.avatar,
-            },
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
+            { name: userInfo.name, avatar: userInfo.avatar },
+            { headers: { Authorization: `Bearer ${token}` } }
           );
         } catch (err) {
-          console.error('Lỗi lưu backend:', err);
+          console.error(err);
         }
-
-        setUser({
-          id: userInfo.id,
-          name: userInfo.name,
-          avatar: userInfo.avatar,
-        });
+        setUser({ id: userInfo.id, name: userInfo.name, avatar: userInfo.avatar });
       }
     } catch (error) {
-      console.log('Người dùng từ chối cấp quyền');
+      console.log('User denied');
     } finally {
       setLoading(false);
     }
   }, [user, loading, setUser]);
 
-  // --- HÀM 2: BẢO VỆ HÀNH ĐỘNG (Logic mới bạn cần) ---
-  // Hàm này nhận vào một hành động (callback).
-  // Nếu đã login -> Chạy hành động đó.
-  // Nếu chưa login -> Gọi hàm đăng nhập (handleSyncUser).
   const handleProtectedAction = (action: () => void) => {
     if (user) {
-      action(); // Đã có user, chạy chức năng
+      action();
     } else {
-      handleSyncUser(); // Chưa có user, hiện popup xin quyền
+      handleSyncUser();
     }
   };
 
-  // --- TỰ ĐỘNG CHẠY 1 LẦN KHI VÀO TRANG ---
   useEffect(() => {
-    if (!user) {
-      handleSyncUser();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!user) handleSyncUser();
+    fetchMyWallet();
   }, []);
 
-  return (
-    <Page className="bg-gray-100 h-full">
-      <Header title="Tài khoản" showBackIcon={true} className="bg-white" />
+  const voucherStats = useMemo(() => {
+    const list = Array.isArray(myVouchers) ? myVouchers : [];
+    const now = new Date().getTime();
 
-      {/* --- PHẦN HEADER THÔNG TIN --- */}
+    const saved = list.filter(
+      (v) => v.status === 'UNUSED' && new Date(v.end_date).getTime() > now
+    ).length;
+    const used = list.filter((v) => v.status === 'USED').length;
+    const expiring = list.filter((v) => {
+      if (v.status !== 'UNUSED') return false;
+      const end = new Date(v.end_date).getTime();
+      const diffHours = (end - now) / (1000 * 60 * 60);
+      return diffHours > 0 && diffHours < 72;
+    }).length;
+
+    return { saved, used, expiring };
+  }, [myVouchers]);
+
+  const mockStats = {
+    favorites: 12,
+    checkin: 23,
+    badges: 4,
+    points: 850,
+    maxPoints: 1000,
+    rank: 'Vàng',
+  };
+
+  const recentStores = [
+    {
+      id: 1,
+      name: 'ZStation Coffee',
+      time: '2 giờ trước',
+      img: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=100&q=80',
+    },
+    {
+      id: 2,
+      name: 'K Coffee',
+      time: 'Hôm qua',
+      img: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=100&q=80',
+    },
+  ];
+
+  const StatBox = ({ num, label, onClick, color = 'text-red-500' }: any) => (
+    <div
+      onClick={() => handleProtectedAction(onClick || (() => {}))}
+      className="bg-white rounded-xl p-3 flex flex-col items-center justify-center shadow-sm border border-gray-50 active:scale-95 transition-transform h-24 cursor-pointer"
+    >
+      <Text className={`font-bold text-xl mb-1 ${color}`}>{num}</Text>
+      <Text size="xxSmall" className="text-gray-500 text-center leading-3">
+        {label}
+      </Text>
+    </div>
+  );
+
+  const SettingItem = ({ icon, label, isLast = false, onClick }: any) => (
+    <div
+      className={`flex items-center p-4 active:bg-gray-50 cursor-pointer ${
+        !isLast ? 'border-b border-gray-100' : ''
+      }`}
+      onClick={onClick}
+    >
+      <div className="w-8 flex justify-center text-gray-500 text-lg mr-3">{icon}</div>
+      <Text className="flex-1 font-medium text-gray-700 text-sm">{label}</Text>
+      <MdOutlineKeyboardArrowRight className="text-gray-400 text-xl" />
+    </div>
+  );
+
+  return (
+    <Page className="bg-[#F4F5F7] h-full pb-24 overflow-y-auto">
       <div
-        onClick={handleSyncUser}
-        className="bg-white p-4 mt-24 mb-2 flex items-center cursor-pointer active:opacity-70 transition-opacity"
+        className="bg-white p-5 pt-12 pb-6 flex items-center gap-4 cursor-pointer"
+        onClick={!user ? handleSyncUser : undefined}
       >
         <div className="relative">
           <Avatar
-            size={72}
-            story="default"
-            online={!!user}
             src={user?.avatar || 'https://i.imgur.com/8Km9tLL.png'}
+            size={64}
+            className="border-2 border-red-50"
           >
-            {!user?.avatar && 'U'}
+            {user ? '' : 'U'}
           </Avatar>
         </div>
-
-        <Box className="ml-4">
-          {user ? (
-            <>
-              <Text.Title className="font-bold text-lg">{user.name}</Text.Title>
-              <Text size="small" className="text-gray-500">
-                Thành viên
+        <div className="flex-1">
+          <Text.Title size="normal" className="font-extrabold text-gray-800">
+            {user ? user.name : 'Đăng nhập / Đăng ký'}
+          </Text.Title>
+          <div className="flex items-center gap-1 mt-1">
+            {user ? (
+              <>
+                <div className="flex text-yellow-400 text-[10px]">★★★★★</div>
+                <Text size="xxSmall" className="text-gray-400">
+                  Thành viên thân thiết
+                </Text>
+              </>
+            ) : (
+              <Text size="xxSmall" className="text-blue-500 font-medium">
+                Chạm để đồng bộ tài khoản
               </Text>
-            </>
-          ) : (
-            <>
-              <Text.Title className="font-bold text-lg text-blue-600">
-                {loading ? 'Đang đồng bộ...' : 'Đăng nhập / Đăng ký'}
-              </Text.Title>
-              <Text size="small" className="text-gray-400">
-                {loading ? 'Vui lòng đợi...' : 'Chạm để đồng bộ tài khoản'}
-              </Text>
-            </>
-          )}
-        </Box>
-
-        {!user && !loading && <Icon icon="zi-chevron-right" className="ml-auto text-gray-400" />}
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* --- PHẦN MENU (Luôn hiển thị, nhưng bấm vào sẽ check quyền) --- */}
-      <div className="bg-white mb-2">
-        <Text.Header className="px-4 py-3 text-gray-500">Tiện ích</Text.Header>
-        <List>
-          <List.Item
-            title="Lịch sử Voucher"
-            prefix={<Icon icon="zi-clock-1" className="text-blue-500" />}
-            suffix={<Icon icon="zi-chevron-right" />}
-            // SỬA Ở ĐÂY: Bọc hành động trong handleProtectedAction
-            onClick={() =>
-              handleProtectedAction(() => {
-                console.log('Chuyển trang lịch sử');
-                // navigate('/history');
-              })
-            }
-          />
-          <List.Item
-            title="Quán ăn yêu thích"
-            prefix={<Icon icon="zi-heart" className="text-red-500" />}
-            suffix={<Icon icon="zi-chevron-right" />}
-            onClick={() =>
-              handleProtectedAction(() => {
-                console.log('Chuyển trang yêu thích');
-              })
-            }
-          />
-          <List.Item
-            title="Địa chỉ đã lưu"
-            prefix={<Icon icon="zi-location" className="text-green-500" />}
-            suffix={<Icon icon="zi-chevron-right" />}
-            onClick={() =>
-              handleProtectedAction(() => {
-                console.log('Chuyển trang địa chỉ');
-              })
-            }
-          />
-        </List>
-      </div>
+      <div className="px-3 -mt-2 space-y-3">
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <Icon icon="zi-poll-solid" className="text-pink-500" size={18} />
+            <Text className="font-bold text-sm uppercase text-gray-700">Thẻ thành viên</Text>
+          </div>
 
-      <div className="bg-white">
-        <Text.Header className="px-4 py-3 text-gray-500">Hệ thống</Text.Header>
-        <List>
-          {/* Nút Đăng xuất chỉ hiện khi ĐÃ có user (vì chưa có user thì không logout được) */}
-          {user && (
-            <List.Item
-              title="Đăng xuất"
-              prefix={<Icon icon="zi-leave" className="text-red-500" />}
-              onClick={(e) => {
-                e.stopPropagation();
-                setUser(null);
-              }}
+          <div className="bg-gradient-to-r from-yellow-400 to-amber-500 rounded-xl p-4 text-white shadow-lg shadow-yellow-100 relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="flex justify-between items-start mb-1">
+                <div>
+                  <div className="font-bold text-lg">Hạng: {mockStats.rank}</div>
+                  <div className="text-xs opacity-90">
+                    {user ? mockStats.points : 0}/{mockStats.maxPoints} điểm
+                  </div>
+                </div>
+                <FaCrown className="text-yellow-100 text-3xl opacity-50" />
+              </div>
+
+              <div className="w-full h-1.5 bg-black/10 rounded-full mt-2 mb-2 overflow-hidden">
+                <div
+                  className="h-full bg-white opacity-80 rounded-full"
+                  style={{
+                    width: user ? `${(mockStats.points / mockStats.maxPoints) * 100}%` : '0%',
+                  }}
+                ></div>
+              </div>
+
+              <div className="text-[10px] opacity-90 font-medium">
+                {user ? 'Ưu đãi: Giảm thêm 5% mọi hóa đơn' : 'Đăng nhập để tích điểm'}
+              </div>
+            </div>
+            <div className="absolute -right-4 -bottom-8 w-24 h-24 bg-white opacity-10 rounded-full"></div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
+          <StatBox
+            num={voucherStats.saved}
+            label="Voucher đã lưu"
+            onClick={() => navigate('/my-voucher')}
+          />
+
+          <StatBox
+            num={mockStats.favorites}
+            label="Yêu thích"
+            onClick={() => console.log('Chuyển trang Yêu thích cũ')}
+          />
+
+          <StatBox num={mockStats.checkin} label="Check-in" onClick={() => {}} />
+
+          <StatBox num={mockStats.badges} label="Badge" onClick={() => {}} />
+        </div>
+
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2">
+              <Icon icon="zi-note" className="text-orange-500" />
+              <Text className="font-bold text-sm uppercase text-gray-700">Voucher của tôi</Text>
+            </div>
+            <Text
+              size="small"
+              className="text-red-500 font-medium cursor-pointer active:opacity-60"
+              onClick={() => handleProtectedAction(() => navigate('/my-voucher'))}
+            >
+              Xem tất cả
+            </Text>
+          </div>
+
+          <div className="flex text-center divide-x divide-gray-100">
+            <div
+              className="flex-1 cursor-pointer active:opacity-60"
+              onClick={() => handleProtectedAction(() => navigate('/my-voucher'))}
+            >
+              <div className="text-xl font-bold text-red-500">{voucherStats.saved}</div>
+              <div className="text-[10px] text-gray-400 mt-1">Đang lưu</div>
+            </div>
+            <div className="flex-1">
+              <div className="text-xl font-bold text-green-500">{voucherStats.used}</div>
+              <div className="text-[10px] text-gray-400 mt-1">Đã sử dụng</div>
+            </div>
+            <div className="flex-1">
+              <div className="text-xl font-bold text-orange-500">{voucherStats.expiring}</div>
+              <div className="text-[10px] text-gray-400 mt-1">Sắp hết hạn</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <Icon icon="zi-location" className="text-blue-500" />
+            <Text className="font-bold text-sm uppercase text-gray-700">Quán đã xem gần đây</Text>
+          </div>
+
+          <div className="space-y-4">
+            {recentStores.map((store) => (
+              <div
+                key={store.id}
+                className="flex items-center gap-3 active:opacity-60 cursor-pointer"
+                onClick={() => navigate(`/store/${store.id}`)}
+              >
+                <img
+                  src={store.img}
+                  className="w-10 h-10 rounded-lg object-cover bg-gray-200"
+                  alt=""
+                />
+                <div className="flex-1 border-b border-gray-50 pb-2">
+                  <div className="flex justify-between items-center">
+                    <Text className="font-bold text-gray-800 text-sm">{store.name}</Text>
+                    <MdOutlineKeyboardArrowRight className="text-gray-400" />
+                  </div>
+                  <Text size="xxSmall" className="text-gray-400">
+                    {store.time}
+                  </Text>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-4">
+          <div className="p-4 pb-2 flex items-center gap-2">
+            <Icon icon="zi-setting" className="text-gray-400" />
+            <Text className="font-bold text-sm uppercase text-gray-700">Cài đặt</Text>
+          </div>
+
+          <div>
+            <SettingItem
+              icon={<FaMapMarkerAlt />}
+              label="Địa chỉ đã lưu"
+              onClick={() => handleProtectedAction(() => console.log('Chức năng địa chỉ cũ'))}
             />
-          )}
 
-          <List.Item
-            title="Hỗ trợ & Liên hệ"
-            prefix={<Icon icon="zi-call" className="text-gray-500" />}
-            suffix={<Icon icon="zi-chevron-right" />}
-            // Mục này thường không cần login vẫn xem được, nên không cần bọc hàm bảo vệ
-            onClick={() => console.log('Gọi hotline')}
-          />
-        </List>
+            <SettingItem icon={<Icon icon="zi-notif-ring" />} label="Thông báo" />
+            <SettingItem icon={<Icon icon="zi-lock" />} label="Quyền riêng tư" />
+            <SettingItem icon={<Icon icon="zi-poll-solid" />} label="Trung tâm trợ giúp" />
+
+            {user && (
+              <SettingItem
+                icon={<Icon icon="zi-leave" />}
+                label="Đăng xuất"
+                isLast
+                onClick={(e: any) => {
+                  e.stopPropagation();
+                  setUser(null);
+                  navigate('/welcome');
+                }}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </Page>
   );
@@ -1596,125 +2364,723 @@ export default ProfilePage;
 
 
 ================================================
-FILE PATH: src\pages\voucher\index.tsx
+FILE PATH: src\pages\profile\my-voucher\index.tsx
 ================================================
-import React, { useEffect } from 'react';
-import { Page, Header, Box, Text, Button } from 'zmp-ui';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Page, Header, Box, useSnackbar, Tabs } from 'zmp-ui';
 import { useStore } from '@/hooks/useStore';
+import VoucherTicket from './VoucherTicket';
+import { useNavigate } from 'react-router-dom';
 
-const VoucherPage: React.FC = () => {
-  const { myVouchers, fetchMyWallet, loading } = useStore();
-
-  const safeVouchers = Array.isArray(myVouchers) ? myVouchers : [];
+const MyVoucherPage: React.FC = () => {
+  const { myVouchers, fetchMyWallet, useVoucher, loading } = useStore();
+  const { openSnackbar } = useSnackbar();
+  const navigate = useNavigate();
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     fetchMyWallet();
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
   }, [fetchMyWallet]);
 
+  const handleUse = async (id: number) => {
+    if (!useVoucher) return;
+    const result: any = await useVoucher(id);
+    if (result.success) {
+      openSnackbar({ text: '✅ Sử dụng thành công!', type: 'success' });
+    } else {
+      openSnackbar({ text: result.message || 'Lỗi', type: 'error' });
+    }
+  };
+
+  // Phân loại Voucher
+  const { activeVouchers, historyVouchers } = useMemo(() => {
+    const active: any[] = [];
+    const history: any[] = [];
+    const now = new Date().getTime();
+
+    (myVouchers || []).forEach((item: any) => {
+      const savedTime = new Date(item.saved_at).getTime();
+      const holdingTime = (item.holding_time || 30) * 60 * 1000;
+      const expireHoldTime = savedTime + holdingTime; // Hết hạn giữ chỗ
+      const endDate = new Date(item.end_date).getTime(); // Hết hạn chương trình
+
+      const isExpired = now > endDate;
+      const isHoldExpired = now > expireHoldTime;
+      const isUsed = item.status === 'USED';
+
+      if (!isExpired && !isHoldExpired && !isUsed) {
+        active.push(item);
+      } else {
+        history.push({ ...item });
+      }
+    });
+
+    return { activeVouchers: active, historyVouchers: history };
+  }, [myVouchers]);
+
+  const EmptyState = ({ text }: { text: string }) => (
+    <div className="flex flex-col items-center justify-center mt-12 opacity-60">
+      <div className="text-4xl mb-2">🎫</div>
+      <p className="text-gray-500 text-sm font-medium">{text}</p>
+      <button
+        onClick={() => navigate('/home')}
+        className="mt-4 text-[#D83231] font-bold text-sm hover:underline"
+      >
+        Săn voucher mới →
+      </button>
+    </div>
+  );
+
   return (
-    <Page className="bg-gray-50 h-full pb-20">
+    <Page className="bg-gray-50 h-full pb-safe">
       <Header
-        title="Ví Voucher của tôi"
+        title="Ví Voucher Của Tôi"
         showBackIcon={true}
-        className="text-white shadow-sm bg-orange-500 "
+        className="bg-[#D83231] text-white"
+        textColor="white"
       />
 
-      <Box p={4} className="mt-20">
-        {loading && <div className="text-center text-gray-400 mt-4">Đang tải ví...</div>}
+      <div className="mt-[80px] h-full flex flex-col">
+        <Tabs id="my-voucher-tabs" className="flex-1 flex flex-col">
+          <Tabs.Tab key="active" label={`Khả dụng (${activeVouchers.length})`}>
+            <Box className="p-4 bg-gray-50 min-h-[80vh]">
+              {loading ? (
+                <div className="text-center py-10 text-gray-400 text-xs">Đang tải ví...</div>
+              ) : activeVouchers.length > 0 ? (
+                activeVouchers.map((item) => (
+                  <VoucherTicket key={item.wallet_id} item={item} onUse={handleUse} />
+                ))
+              ) : (
+                <EmptyState text="Bạn chưa có voucher nào khả dụng" />
+              )}
+            </Box>
+          </Tabs.Tab>
 
-        {!loading && safeVouchers.length === 0 && (
-          <div className="text-center mt-10 text-gray-400 flex flex-col items-center">
-            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-3">
-              🎫
-            </div>
-            <p>Bạn chưa lưu voucher nào.</p>
-            <p className="text-xs mt-1">Hãy ra trang chủ tìm quán để săn nhé!</p>
+          <Tabs.Tab key="history" label="Lịch sử">
+            <Box className="p-4 bg-gray-50 min-h-[80vh]">
+              {historyVouchers.length > 0 ? (
+                historyVouchers.map((item) => (
+                  <VoucherTicket key={item.wallet_id} item={item} onUse={() => {}} isHistory />
+                ))
+              ) : (
+                <EmptyState text="Chưa có lịch sử sử dụng" />
+              )}
+            </Box>
+          </Tabs.Tab>
+        </Tabs>
+      </div>
+    </Page>
+  );
+};
+
+export default MyVoucherPage;
+
+
+================================================
+FILE PATH: src\pages\profile\my-voucher\VoucherTicket.tsx
+================================================
+import React from 'react';
+import { Text, Button } from 'zmp-ui';
+
+interface VoucherTicketProps {
+  item: any;
+  onUse: (id: number) => void;
+  isHistory?: boolean;
+}
+
+const VoucherTicket: React.FC<VoucherTicketProps> = ({ item, onUse, isHistory = false }) => {
+  // Format ngày hết hạn (VD: 20/11/2024)
+  const endDate = new Date(item.end_date);
+  const dateString = endDate.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  // Tính toán đếm ngược
+  const now = new Date().getTime();
+  const savedTime = new Date(item.saved_at).getTime();
+  const holdingTime = (item.holding_time || 30) * 60 * 1000;
+
+  // Thời gian hết hạn giữ chỗ (nếu có) hoặc hết hạn chương trình
+  const expireTime = Math.min(savedTime + holdingTime, endDate.getTime());
+  const timeLeft = expireTime - now;
+
+  const formatCountdown = (ms: number) => {
+    if (ms <= 0) return '00:00:00';
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600)
+      .toString()
+      .padStart(2, '0');
+    const m = Math.floor((totalSec % 3600) / 60)
+      .toString()
+      .padStart(2, '0');
+    const s = (totalSec % 60).toString().padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  };
+
+  const isFlashSale = item.type === 'FLASH_SALE';
+
+  return (
+    <div
+      className={`relative flex w-full h-32 mb-4 filter drop-shadow-sm transition-all active:scale-[0.98] ${
+        isHistory ? 'opacity-70 grayscale' : ''
+      }`}
+    >
+      {/* PHẦN TRÁI: Mức giảm giá */}
+      <div
+        className={`w-[110px] flex flex-col items-center justify-center text-white rounded-l-xl relative ${
+          isHistory
+            ? 'bg-gray-400'
+            : isFlashSale
+            ? 'bg-gradient-to-br from-orange-500 to-red-600'
+            : 'bg-gradient-to-br from-[#D83231] to-[#ff6b6b]'
+        }`}
+      >
+        <div className="text-2xl font-black">{item.discount}</div>
+        <div className="text-[10px] font-bold uppercase tracking-widest opacity-90 mt-1">
+          {isFlashSale ? 'Flash Sale' : 'Voucher'}
+        </div>
+        <div
+          className="absolute right-0 top-0 bottom-0 w-[4px]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, #fff 2px, transparent 2.5px)',
+            backgroundSize: '4px 8px',
+          }}
+        ></div>
+      </div>
+
+      {/* PHẦN PHẢI: Thông tin & Hạn sử dụng */}
+      <div className="flex-1 bg-white rounded-r-xl p-3 flex flex-col justify-between relative border border-l-0 border-gray-100">
+        <div className="absolute -left-2 top-0 w-4 h-4 bg-gray-100 rounded-full mt-[-8px] z-10"></div>
+        <div className="absolute -left-2 bottom-0 w-4 h-4 bg-gray-100 rounded-full mb-[-8px] z-10"></div>
+
+        <div>
+          <div className="flex justify-between items-start">
+            <Text className="font-bold text-gray-800 line-clamp-1 text-sm flex-1 mr-2">
+              {item.title}
+            </Text>
           </div>
-        )}
+          <Text size="xxSmall" className="text-gray-500 line-clamp-1 mb-1">
+            Tại: {item.store_name}
+          </Text>
 
-        {safeVouchers.map((item: any) => (
-          <div
-            key={item.wallet_id || Math.random()}
-            className="bg-white rounded-xl shadow-md overflow-hidden flex mb-4 relative border border-gray-100"
-          >
-            <div className="w-24 bg-orange-500 flex flex-col items-center justify-center text-white p-2 border-r-2 border-dashed border-white">
-              <span className="font-bold text-lg text-center leading-tight">
-                {item.discount || 'KM'}
-              </span>
-              <span className="text-[10px] opacity-80 mt-1 uppercase">Voucher</span>
-            </div>
+          {!isHistory && (
+            <div className="flex flex-col gap-0.5 mt-1">
+              {/* Hiển thị Hạn sử dụng cụ thể */}
+              <Text size="xxSmall" className="text-gray-500 font-medium">
+                HSD: {dateString}
+              </Text>
 
-            <div className="flex-1 p-3 flex flex-col justify-between">
-              <div>
-                <Text className="font-bold text-gray-800 line-clamp-1">{item.title}</Text>
-                <Text size="xxSmall" className="text-gray-500">
-                  {item.store_name}
-                </Text>
+              {/* Hiển thị đếm ngược */}
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-gray-400">Giữ vé trong:</span>
+                <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-1 rounded">
+                  {timeLeft > 0 ? formatCountdown(timeLeft) : 'Hết hạn'}
+                </span>
               </div>
+            </div>
+          )}
 
-              <div className="flex justify-between items-center mt-2">
-                <div className="bg-gray-100 px-2 py-1 rounded text-xs font-mono text-gray-600 border border-gray-200">
-                  {item.code}
+          {isHistory && (
+            <Text size="xxSmall" className="text-gray-400 mt-1">
+              Đã hết hạn vào: {dateString}
+            </Text>
+          )}
+        </div>
+
+        <div className="flex justify-between items-end border-t border-dashed border-gray-200 pt-2 mt-1">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-400">Mã code:</span>
+            <span className="font-mono font-bold text-gray-700 text-xs select-all">
+              {item.code}
+            </span>
+          </div>
+
+          {!isHistory ? (
+            <Button
+              size="small"
+              className="h-7 text-xs bg-[#D83231] text-white shadow-red-200 shadow-md"
+              onClick={() => onUse(item.voucher_id)}
+            >
+              Dùng ngay
+            </Button>
+          ) : (
+            <span className="text-xs font-bold text-gray-400 px-2 py-1 bg-gray-100 rounded">
+              Đã qua
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default VoucherTicket;
+
+
+================================================
+FILE PATH: src\pages\store\index.tsx
+================================================
+import React, { useEffect, useState } from 'react';
+import { Page, Header, Box, Text, Button, Icon, useSnackbar } from 'zmp-ui';
+import { useParams } from 'react-router-dom';
+import api from '@/services/api';
+import { useStore } from '@/hooks/useStore';
+
+const StoreDetailPage: React.FC = () => {
+  const { id } = useParams(); // Lấy ID quán từ URL
+  const { saveVoucher, myVouchers } = useStore();
+  const { openSnackbar } = useSnackbar();
+
+  const [store, setStore] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Lấy danh sách ID voucher đã lưu để check trạng thái nút bấm
+  const savedVoucherIds = new Set(myVouchers.map((v: any) => v.voucher_id));
+
+  useEffect(() => {
+    const fetchDetail = async () => {
+      try {
+        setLoading(true);
+        // Gọi API lấy chi tiết quán (Backend đã có hàm getStoreDetail)
+        const res: any = await api.get(`/api/store/detail/${id}`);
+        if (res && res.data) {
+          setStore(res.data);
+        }
+      } catch (error) {
+        console.error('Lỗi lấy chi tiết quán:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) fetchDetail();
+  }, [id]);
+
+  const handleSave = (voucherId: number) => {
+    saveVoucher(voucherId);
+    openSnackbar({ text: 'Đã lưu vào ví!', type: 'success' });
+  };
+
+  if (loading)
+    return (
+      <div className="flex justify-center mt-20">
+        <div className="w-8 h-8 border-4 border-orange-500 rounded-full animate-spin border-t-transparent"></div>
+      </div>
+    );
+
+  if (!store) return <div className="text-center mt-20">Không tìm thấy quán</div>;
+
+  return (
+    <Page className="bg-white pb-20 relative">
+      {/* Header trong suốt đè lên ảnh */}
+      <Header
+        title="Chi tiết quán"
+        showBackIcon
+        className="absolute top-0 left-0 right-0 z-50 bg-transparent text-white shadow-none"
+        style={{ background: 'transparent' }}
+        textColor="white"
+      />
+
+      {/* Ảnh bìa */}
+      <div className="relative h-60 w-full">
+        <img
+          src={store.image || 'https://via.placeholder.com/400x200'}
+          className="w-full h-full object-cover"
+          alt={store.name}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+
+        <div className="absolute bottom-4 left-4 right-4 text-white">
+          <Text.Title size="large" className="font-bold mb-1">
+            {store.name}
+          </Text.Title>
+          <div className="flex items-center gap-1 text-sm opacity-90">
+            <Icon icon="zi-location-solid" size={16} />
+            <span className="line-clamp-1">{store.address}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Nội dung chính */}
+      <Box p={4} className="-mt-4 bg-white rounded-t-2xl relative z-10 min-h-screen">
+        <div className="flex gap-4 mb-6 border-b border-gray-100 pb-4">
+          <div className="flex-1 text-center">
+            <div className="font-bold text-lg">4.8 ⭐</div>
+            <div className="text-xs text-gray-500">Đánh giá</div>
+          </div>
+          <div className="w-[1px] bg-gray-200"></div>
+          <div className="flex-1 text-center">
+            <div className="font-bold text-lg text-green-600">Đang mở</div>
+            <div className="text-xs text-gray-500">07:00 - 22:00</div>
+          </div>
+        </div>
+
+        <Text.Title size="normal" className="font-bold mb-4 uppercase">
+          Voucher ưu đãi ({store.vouchers?.length || 0})
+        </Text.Title>
+
+        <div className="space-y-4">
+          {store.vouchers &&
+            store.vouchers.map((v: any) => {
+              const isSaved = savedVoucherIds.has(v.id);
+              return (
+                <div
+                  key={v.id}
+                  className="border border-orange-100 bg-orange-50/30 rounded-xl p-3 flex justify-between items-center relative overflow-hidden"
+                >
+                  {/* Trang trí */}
+                  <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+
+                  <div className="flex-1 pl-3">
+                    <Text className="font-bold text-gray-800">{v.title}</Text>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="bg-white border border-gray-200 text-xs px-2 py-0.5 rounded text-gray-500 font-mono">
+                        {v.code}
+                      </span>
+                      <span className="text-orange-600 font-bold text-xs">Giảm {v.discount}</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    size="small"
+                    className={`h-8 min-w-[80px] text-xs font-bold shadow-none ${
+                      isSaved ? 'bg-gray-200 text-gray-500' : 'bg-orange-500 text-white'
+                    }`}
+                    disabled={isSaved}
+                    onClick={() => !isSaved && handleSave(v.id)}
+                  >
+                    {isSaved ? 'Đã lưu' : 'Lưu'}
+                  </Button>
                 </div>
-                <Button size="small" className="h-7 text-xs bg-teal-600 text-white">
-                  Dùng ngay
-                </Button>
-              </div>
-            </div>
+              );
+            })}
 
-            <div className="absolute top-1/2 -left-2 w-4 h-4 bg-gray-50 rounded-full mt-[-8px]"></div>
-            <div className="absolute top-1/2 -right-2 w-4 h-4 bg-gray-50 rounded-full mt-[-8px]"></div>
-          </div>
-        ))}
+          {(!store.vouchers || store.vouchers.length === 0) && (
+            <div className="text-center text-gray-400 italic py-4">Chưa có voucher nào</div>
+          )}
+        </div>
       </Box>
     </Page>
   );
 };
 
-export default VoucherPage;
+export default StoreDetailPage;
 
 
 ================================================
-FILE PATH: src\pages\voucher\VoucherCard.tsx
+FILE PATH: src\pages\voucher\CategoryTabs.tsx
 ================================================
 import React from 'react';
+import { Box } from 'zmp-ui';
 
-interface VoucherProps {
-  title: string;
-  expiry: string;
-  code: string;
+interface CategoryTabsProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
 }
 
-const VoucherCard: React.FC<VoucherProps> = ({ title, expiry, code }) => {
+const categories = ['Tất cả', 'Flash Sale', 'F&B', 'Cafe', 'Ăn vặt', 'Nhà hàng', 'Trà sữa'];
+
+const CategoryTabs: React.FC<CategoryTabsProps> = ({ activeTab, setActiveTab }) => {
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden flex mb-4 relative">
-      {/* Phần bên trái: Hình ảnh hoặc % giảm giá */}
-      <div className="w-24 bg-orange-500 flex items-center justify-center text-white font-bold text-xl p-2 text-center border-r-2 border-dashed border-white">
-        HOT
+    <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+      <div className="flex overflow-x-auto no-scrollbar px-4 pt-3 pb-1 gap-6">
+        {categories.map((cat) => {
+          const isActive = activeTab === cat;
+          return (
+            <div
+              key={cat}
+              onClick={() => setActiveTab(cat)}
+              className={`flex-shrink-0 pb-2 cursor-pointer transition-all font-medium text-sm ${
+                isActive
+                  ? 'text-[#D83231] border-b-2 border-[#D83231] font-bold'
+                  : 'text-gray-500 border-b-2 border-transparent'
+              }`}
+            >
+              {cat}
+            </div>
+          );
+        })}
       </div>
-
-      {/* Phần bên phải: Thông tin */}
-      <div className="flex-1 p-3">
-        <h4 className="font-bold text-gray-800">{title}</h4>
-        <p className="text-xs text-gray-500 mt-1">HSD: {expiry}</p>
-        <div className="mt-2 flex justify-between items-center">
-          <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 font-mono">
-            {code}
-          </span>
-          <button className="text-xs bg-teal-500 text-white px-3 py-1 rounded-full shadow hover:bg-teal-600">
-            Dùng ngay
-          </button>
-        </div>
-      </div>
-
-      {/* Trang trí hình tròn khuyết để tạo hình vé */}
-      <div className="absolute top-1/2 -left-2 w-4 h-4 bg-gray-100 rounded-full mt-[-8px]"></div>
-      <div className="absolute top-1/2 -right-2 w-4 h-4 bg-gray-100 rounded-full mt-[-8px]"></div>
     </div>
   );
 };
 
-export default VoucherCard;
+export default CategoryTabs;
+
+
+================================================
+FILE PATH: src\pages\voucher\FlashSaleSection.tsx
+================================================
+import React, { useEffect, useState } from 'react';
+import { Box, Text, Button, Icon } from 'zmp-ui';
+import { useStore } from '@/hooks/useStore';
+import { useNavigate } from 'react-router-dom';
+
+const FlashSaleCard = ({ item }: { item: any }) => {
+  const [timeLeft, setTimeLeft] = useState('');
+  const { saveVoucher } = useStore();
+
+  useEffect(() => {
+    const calculateTime = () => {
+      const end = new Date(item.end_date).getTime();
+      const now = new Date().getTime();
+      const diff = end - now;
+      if (diff <= 0) return '00:00:00';
+
+      const h = Math.floor(diff / (1000 * 60 * 60))
+        .toString()
+        .padStart(2, '0');
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+        .toString()
+        .padStart(2, '0');
+      const s = Math.floor((diff % (1000 * 60)) / 1000)
+        .toString()
+        .padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    };
+    const timer = setInterval(() => setTimeLeft(calculateTime()), 1000);
+    return () => clearInterval(timer);
+  }, [item.end_date]);
+
+  return (
+    <div className="bg-[#FFECC7] rounded-xl p-4 mb-4 border border-orange-100 relative overflow-hidden">
+      {/* Badge giảm giá + Time */}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1">
+          <Icon icon="zi-poll" size={14} />
+          <span>-{item.discount}</span>
+          <span className="w-[1px] h-3 bg-white/40 mx-1"></span>
+          <span className="font-mono">{timeLeft}</span>
+        </div>
+      </div>
+
+      {/* Tên quán + Title */}
+      <Text.Title size="small" className="font-bold text-gray-800 line-clamp-1 mb-1">
+        {item.store_name} - {item.title}
+      </Text.Title>
+
+      <Text size="xxSmall" className="text-gray-500 mb-3 line-clamp-1">
+        #{item.code} • Áp dụng tất cả chi nhánh
+      </Text>
+
+      {/* Nút lưu */}
+      <Button
+        size="small"
+        className="bg-[#D83231] text-white font-bold h-8 rounded-full px-6 shadow-red-200"
+        onClick={() => saveVoucher(item.id)}
+      >
+        Lưu voucher
+      </Button>
+
+      {/* Decor góc */}
+      <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-orange-300 opacity-20 rounded-full"></div>
+    </div>
+  );
+};
+
+const FlashSaleSection = ({ flashSales }: { flashSales: any[] }) => {
+  if (!flashSales || flashSales.length === 0) return null;
+
+  return (
+    <Box className="bg-white p-4 pb-2">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon icon="zi-poll-solid" className="text-orange-500" />
+        <Text.Title size="normal" className="font-extrabold uppercase text-gray-800">
+          FLASH SALE ĐANG DIỄN RA
+        </Text.Title>
+      </div>
+
+      {/* Nếu có nhiều Flash Sale thì map ra, ở đây demo lấy cái đầu tiên active */}
+      {flashSales.slice(0, 3).map((item) => (
+        <FlashSaleCard key={item.id} item={item} />
+      ))}
+    </Box>
+  );
+};
+
+export default FlashSaleSection;
+
+
+================================================
+FILE PATH: src\pages\voucher\index.tsx
+================================================
+import React, { useEffect, useState, useMemo } from 'react';
+import { Page, Box, Header } from 'zmp-ui';
+import { useStore } from '@/hooks/useStore';
+import CategoryTabs from './CategoryTabs';
+import FlashSaleSection from './FlashSaleSection';
+import StoreDealList from './StoreDealList';
+
+const PromotionPage: React.FC = () => {
+  const { stores, flashSales, fetchNearby, fetchFlashSales } = useStore();
+
+  const [activeTab, setActiveTab] = useState('Tất cả');
+
+  useEffect(() => {
+    fetchFlashSales();
+    fetchNearby();
+  }, []);
+
+  const filteredStores = useMemo(() => {
+    if (!stores) return [];
+    if (activeTab === 'Tất cả') return stores;
+    return stores.filter((s) => s.category?.toLowerCase().includes(activeTab.toLowerCase()));
+  }, [stores, activeTab]);
+
+  return (
+    <Page className="bg-gray-100 h-full">
+      <Header title="Khuyến mãi" showBackIcon />
+      <Box className="h-20 bg-gray-100" />
+
+      <CategoryTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      <div className="overflow-y-auto h-full pb-safe">
+        {activeTab === 'Tất cả' || activeTab === 'Flash Sale' ? (
+          <FlashSaleSection flashSales={flashSales} />
+        ) : null}
+
+        <StoreDealList stores={filteredStores} />
+      </div>
+    </Page>
+  );
+};
+
+export default PromotionPage;
+
+
+================================================
+FILE PATH: src\pages\voucher\StoreDealList.tsx
+================================================
+import React from 'react';
+import { Box, Text, Button, Icon } from 'zmp-ui';
+import { Store } from '@/types/store';
+import { useNavigate } from 'react-router-dom';
+
+const StoreDealItem = ({ store }: { store: Store }) => {
+  const navigate = useNavigate();
+  // Filter voucher thường (không phải flash sale)
+  const normalVouchers = store.vouchers?.filter((v) => v.type !== 'FLASH_SALE') || [];
+  const voucherCount = normalVouchers.length;
+
+  // Fake rating vì trong model chưa có
+  const rating = 4.5;
+  const reviewCount = Math.floor(Math.random() * 100) + 10;
+
+  if (voucherCount === 0) return null;
+
+  return (
+    <div className="bg-white p-4 border-b border-gray-50 last:border-none flex gap-4">
+      {/* Ảnh quán (Vuông bo góc) */}
+      <div className="w-28 h-28 flex-shrink-0">
+        <img
+          src={store.image || 'https://via.placeholder.com/150'}
+          className="w-full h-full object-cover rounded-xl bg-gray-100 border border-gray-100"
+          alt={store.name}
+        />
+      </div>
+
+      {/* Thông tin bên phải */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        <Text.Title size="small" className="font-bold text-gray-800 line-clamp-1 uppercase">
+          {store.name}
+        </Text.Title>
+
+        {/* Rating */}
+        <div className="flex items-center gap-1 my-1">
+          <div className="flex text-yellow-400 text-xs">
+            {'★★★★★'.split('').map((s, i) => (
+              <span
+                key={i}
+                className={i < Math.floor(rating) ? 'text-yellow-400' : 'text-gray-300'}
+              >
+                ★
+              </span>
+            ))}
+          </div>
+          <Text size="xxSmall" className="text-gray-500">
+            {rating} ({reviewCount} đánh giá)
+          </Text>
+        </div>
+
+        {/* Badge số lượng ưu đãi */}
+        <div className="mb-2">
+          <span className="bg-pink-50 text-pink-500 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block">
+            {voucherCount} ưu đãi đang có
+          </span>
+        </div>
+
+        {/* List voucher text (tối đa 2 dòng) */}
+        <div className="mb-3 space-y-0.5">
+          {normalVouchers.slice(0, 2).map((v) => (
+            <div key={v.id} className="flex items-center gap-1.5">
+              <div className="w-1 h-1 rounded-full bg-gray-400"></div>
+              <Text size="xxSmall" className="text-gray-500 line-clamp-1">
+                {v.title}
+              </Text>
+            </div>
+          ))}
+          {voucherCount > 2 && (
+            <Text size="xxSmall" className="text-gray-400 italic pl-2.5">
+              + {voucherCount - 2} ưu đãi khác...
+            </Text>
+          )}
+        </div>
+
+        {/* Nút Xem chi tiết */}
+        <div className="mt-auto">
+          <Button
+            size="small"
+            className="bg-[#D83231] text-white font-bold h-7 text-xs rounded-full px-4"
+            onClick={() => navigate(`/store/${store.id}`)}
+          >
+            Xem chi tiết
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const StoreDealList = ({ stores }: { stores: Store[] }) => {
+  // Lọc chỉ những quán có voucher
+  const storesWithDeals = stores.filter((s) => s.vouchers && s.vouchers.length > 0);
+
+  return (
+    <Box className="bg-white mt-2 pb-20">
+      <div className="p-4 pb-0 flex justify-between items-end">
+        <div className="flex items-center gap-2">
+          <Icon icon="zi-poll-solid" className="text-pink-500 font-bold" />
+          <div>
+            <Text.Title size="normal" className="font-extrabold uppercase text-gray-800">
+              Ưu đãi dành cho bạn
+            </Text.Title>
+            <Text size="xxSmall" className="text-gray-400">
+              {storesWithDeals.length} cửa hàng • 5km quanh bạn
+            </Text>
+          </div>
+        </div>
+      </div>
+
+      <div className="divide-y divide-gray-50">
+        {storesWithDeals.map((store) => (
+          <StoreDealItem key={store.id} store={store} />
+        ))}
+      </div>
+
+      {storesWithDeals.length === 0 && (
+        <div className="text-center py-10 text-gray-400 text-sm">
+          Không tìm thấy ưu đãi nào quanh đây :(
+        </div>
+      )}
+    </Box>
+  );
+};
+
+export default StoreDealList;
 
 
 ================================================
@@ -1914,6 +3280,11 @@ export const userLoadingState = atom<boolean>({
   default: false,
 });
 
+export const flashSaleState = atom<any[]>({
+  key: 'flashSaleState',
+  default: [],
+});
+
 
 ================================================
 FILE PATH: src\types\store.ts
@@ -1923,6 +3294,8 @@ export interface Voucher {
   title: string;
   code: string;
   discount: string;
+  end_date: string;
+  type: 'DEFAULT' | 'FLASH_SALE';
   discount_percent?: number;
 }
 
@@ -2015,7 +3388,7 @@ FILE PATH: tsconfig.json
 ================================================
 FILE PATH: www\app-config.json
 ================================================
-{"app":{"title":"zaui-LoctionVoucher","textColor":{"light":"black","dark":"white"},"statusBar":"transparent","actionBarHidden":true,"hideIOSSafeAreaBottom":true,"hideAndroidBottomNavigationBar":false},"listCSS":["assets/index-C2_1Q9_q.css"],"listSyncJS":["assets/index.TXDeWumS.module.js"],"listAsyncJS":[],"pages":[]}
+{"app":{"title":"zaui-LoctionVoucher","textColor":{"light":"black","dark":"white"},"statusBar":"transparent","actionBarHidden":true,"hideIOSSafeAreaBottom":true,"hideAndroidBottomNavigationBar":false},"listCSS":["assets/index-CT4LroQ2.css"],"listSyncJS":["assets/index.CY531BVP.module.js"],"listAsyncJS":[],"pages":[]}
 
 ================================================
 FILE PATH: zmp-cli.json

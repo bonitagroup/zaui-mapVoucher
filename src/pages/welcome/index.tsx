@@ -18,50 +18,77 @@ const WelcomePage: React.FC = () => {
 
   return (
     <Page className="relative flex flex-col h-screen bg-white overflow-y-auto">
-      <div className="relative flex-shrink-0 bg-gradient-to-br from-red-400 via-[#D83231] to-red-900 flex flex-col items-center justify-center pt-20 pb-8 rounded-b-[40px] z-0">
-        <div className="absolute top-0 left-0 w-40 h-40 bg-white opacity-10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-10 right-0 w-32 h-32 bg-orange-300 opacity-20 rounded-full blur-3xl"></div>
+      <div className="relative flex-shrink-0 h-[50vh] w-full flex flex-col pb-20 justify-center z-0 overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <img
+            src="https://res.cloudinary.com/dzpyhq3z5/image/upload/v1765443946/Ảnh_chụp_màn_hình_2025-12-11_160519_snnauc.png"
+            className="w-full h-full object-cover opacity-50"
+            alt="Bản đồ Thái Nguyên"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/50 to-white"></div>
+        </div>
 
-        <div
-          className={`transition-all duration-700 transform ${
-            visible ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'
-          } text-center z-10 px-4`}
-        >
-          <h1 className="text-2xl font-extrabold text-white tracking-tight drop-shadow-md leading-tight uppercase">
-            Thái Nguyên <br /> Voucher Maps
-          </h1>
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <div
+            className={`absolute top-[20%] left-[15%] text-red-500 transform transition-all duration-1000 delay-300 ${
+              visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
+            }`}
+          >
+            <div className="animate-[bounce_3s_infinite]">
+              <Icon icon="zi-location-solid" size={32} className="drop-shadow-md" />
+            </div>
+            <div className="w-6 h-1.5 bg-black/10 rounded-full blur-[1px] mx-auto animate-pulse mt-1"></div>
+          </div>
 
-          <div className="mt-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full inline-block border border-white/10">
-            <p className="text-white text-[10px] font-semibold tracking-wide">
-              "Đi đâu cũng có deal, ăn gì cũng tiết kiệm"
-            </p>
+          <div
+            className={`absolute top-[30%] right-[15%] transform transition-all duration-1000 delay-500 ${
+              visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
+            }`}
+          >
+            <div className="relative animate-[bounce_4s_infinite]">
+              <div className="w-12 h-12 bg-white p-1 rounded-full shadow-lg border-2 border-orange-500 z-10 relative overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=100&q=80"
+                  className="w-full h-full rounded-full object-cover"
+                  alt="Store"
+                />
+              </div>
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-orange-500 rotate-45 transform origin-center -z-10"></div>
+            </div>
+          </div>
+
+          <div
+            className={`absolute bottom-[30%] left-[45%] transform transition-all duration-1000 delay-700 ${
+              visible ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
+            }`}
+          >
+            <div className="relative animate-[bounce_2.5s_infinite]">
+              <Icon icon="zi-location-solid" size={48} className="text-[#D83231] drop-shadow-xl" />
+              <div className="absolute -top-4 -right-8 bg-yellow-400 text-red-600 text-[10px] font-extrabold px-2 py-0.5 rounded shadow-sm border border-white rotate-6">
+                VOUCHER
+              </div>
+            </div>
           </div>
         </div>
 
         <div
-          className={`mt-6 relative transition-all duration-1000 delay-300 transform ${
-            visible ? 'scale-100 opacity-100' : 'scale-90 opacity-0'
+          className={`relative z-10 text-center px-4  transition-all duration-700 transform ${
+            visible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
           }`}
         >
-          <div className="absolute inset-0 bg-white/20 rounded-full blur-xl scale-110"></div>
+          <h1 className="text-4xl font-black text-gray-800 text-left tracking-tighter leading-none drop-shadow-sm mb-3">
+            THÁI NGUYÊN <br />
+            <span className="text-[#D83231] text-5xl">VOUCHER MAPS</span>
+          </h1>
 
-          <img
-            src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80"
-            className="w-48 h-48 object-cover rounded-full border-[4px] border-white/40 shadow-2xl relative z-10 animate-[bounce_4s_infinite]"
-            alt="Food Hero"
-          />
-
-          <div className="absolute -right-2 top-8 bg-white/90 backdrop-blur-sm p-1.5 rounded-lg shadow-lg z-20 animate-bounce delay-100 flex items-center gap-1">
-            <span className="text-[10px] font-bold text-[#D83231]">-50%</span>
-          </div>
-          <div className="absolute -left-2 bottom-8 bg-white/90 backdrop-blur-sm p-1.5 rounded-lg shadow-lg z-20 animate-bounce delay-300">
-            <Icon icon="zi-location" className="text-[#D83231] pb-6 text-lg" />
-          </div>
+          <p className="text-[#D83231] text-base font-bold bg-white/80 backdrop-blur-md py-1.5 px-4 rounded-xl inline-block shadow-sm border border-white/50">
+            "Đi đâu cũng có deal, ăn gì cũng tiết kiệm"
+          </p>
         </div>
       </div>
 
       <div
-        className={`flex-1 bg-white -mt-8 relative z-10 rounded-t-[32px] px-6 pt-4 pb-safe flex flex-col transition-all duration-700 delay-500 transform ${
+        className={`flex-1 bg-white -mt-8 relative z-10 rounded-t-[32px] border-t border-[#D83231] px-6 pt-4 pb-safe flex flex-col transition-all duration-700 delay-500 transform ${
           visible ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'
         }`}
       >

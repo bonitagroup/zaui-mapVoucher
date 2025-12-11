@@ -19,35 +19,41 @@ export const useStore = () => {
   const [flashSales, setFlashSales] = useRecoilState(flashSaleState);
   const [loading, setLoading] = useState(false);
 
-  const fetchNearby = useCallback(async () => {
-    if (!userLocation[0] || !userLocation[1]) return;
+  const fetchNearby = useCallback(
+    async (params?: { lat?: number; lng?: number; category?: string }) => {
+      // 1. Ưu tiên lấy toạ độ truyền vào, nếu không có thì lấy từ state userLocation
+      const lat = params?.lat || userLocation[0];
+      const lng = params?.lng || userLocation[1];
+      const category = params?.category || 'Tất cả'; // Mặc định là Tất cả
 
-    setLoading(true);
-    try {
-      const res: any = await api.get('/api/store/nearby', {
-        params: {
-          lat: userLocation[0],
-          lng: userLocation[1],
-          radius: 10,
-        },
-      });
+      if (!lat || !lng) return;
 
-      if (res && Array.isArray(res.data)) {
-        setStores(res.data as Store[]);
-      } else {
+      setLoading(true);
+
+      try {
+        const res: any = await api.get('/api/store/nearby', {
+          params: {
+            lat: lat,
+            lng: lng,
+            radius: 10,
+            category: category, // Gửi category lên server
+          },
+        });
+
+        if (res && Array.isArray(res.data)) {
+          setStores(res.data as Store[]);
+        } else {
+          setStores([]);
+        }
+      } catch (error) {
+        console.error('Lỗi lấy quán gần đây:', error);
         setStores([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Lỗi lấy quán gần đây:', error);
-      setStores([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userLocation, setStores]);
-
-  useEffect(() => {
-    fetchNearby();
-  }, [fetchNearby]);
+    },
+    [userLocation, setStores]
+  );
 
   const search = useCallback(
     async (keyword: string) => {
@@ -102,21 +108,21 @@ export const useStore = () => {
 
         const res: any = await api.post(
           '/api/store/save',
+          { voucherId: voucherId },
           {
-            voucherId: voucherId,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
+            headers: { Authorization: `Bearer ${accessToken}` },
           }
         );
 
         if (res && res.success) {
           fetchMyWallet();
+          return { success: true, message: 'Lưu thành công!' };
         }
+        return { success: false, message: 'Không thể lưu voucher' };
       } catch (error: any) {
         console.error('Lỗi lưu voucher:', error);
+        const msg = error?.response?.data?.error || 'Lỗi hệ thống';
+        return { success: false, message: msg };
       }
     },
     [fetchMyWallet]
@@ -168,7 +174,13 @@ export const useStore = () => {
 
   const fetchFlashSales = useCallback(async () => {
     try {
-      const res: any = await api.get('/api/store/flash-sale');
+      const accessToken = await getAccessToken({});
+      const res: any = await api.get('/api/store/flash-sale', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
       if (res && Array.isArray(res.data)) {
         setFlashSales(res.data);
       }

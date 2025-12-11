@@ -7,6 +7,7 @@ import ProfilePage from '@/pages/profile';
 import WelcomePage from '@/pages/welcome';
 import CustomBottomNavigation from './navigation';
 import StoreDetailPage from '@/pages/store';
+import MyVoucherPage from '@/pages/profile/my-voucher/index';
 
 const Layout = () => {
   const location = useLocation();
@@ -23,6 +24,7 @@ const Layout = () => {
           <Route path="/voucher" element={<VoucherPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/store/:id" element={<StoreDetailPage />} />
+          <Route path="/my-voucher" element={<MyVoucherPage />} />
         </Routes>
       </Box>
 

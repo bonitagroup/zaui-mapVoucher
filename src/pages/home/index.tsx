@@ -5,12 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import WelcomeHeader from './WelcomeHeader';
 import TrendingList from './TrendingList';
 import FlashSaleList from './FlashSaleList';
-import NearbyMapCard from './NearbyMapCard';
 import { Store } from '@/types/store';
 
 const HomePage: React.FC = () => {
   const { search, stores, loading, fetchNearby } = useStore();
   const navigate = useNavigate();
+
   const [keyword, setKeyword] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
@@ -31,13 +31,17 @@ const HomePage: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchNearby();
+  }, []);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       if (keyword.trim()) {
         search(keyword);
       } else if (keyword === '') {
         if (!isSearchFocused) fetchNearby();
       }
-    }, 500);
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, [keyword, search, fetchNearby, isSearchFocused]);
@@ -55,6 +59,7 @@ const HomePage: React.FC = () => {
           <Text className="text-gray-400 text-sm flex-1">Bạn muốn ăn gì hôm nay?</Text>
         </div>
       </Box>
+
       <div className="bg-white pb-2 pt-4 rounded-2xl m-2 shadow-sm border border-gray-100">
         <TrendingList stores={safeStores.slice(0, 5)} loading={loading} />
       </div>
@@ -63,14 +68,11 @@ const HomePage: React.FC = () => {
         <FlashSaleList />
       </div>
 
-      <div className="bg-white pb-2 pt-4 rounded-2xl m-2 shadow-sm border border-gray-100">
-        <NearbyMapCard />
-      </div>
-
       <div className="bg-white p-4 pb-2 pt-4 rounded-2xl m-2 shadow-sm border border-gray-100">
         <Text.Title size="normal" className="font-extrabold text-gray-800 uppercase tracking-tight">
           Tin tức nổi bật
         </Text.Title>
+        <div className="text-gray-400 text-sm py-4 text-center">Chưa có tin tức mới</div>
       </div>
 
       {isSearchFocused && (
@@ -101,24 +103,6 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            <Text.Title size="small" className="text-gray-500 mb-3 uppercase font-bold text-xs">
-              {keyword ? `Kết quả cho "${keyword}"` : 'Nhập từ khoá để tìm kiếm'}
-            </Text.Title>
-
-            {loading && (
-              <div className="flex flex-col items-center justify-center mt-10 space-y-2">
-                <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-gray-400 text-xs">Đang tìm kiếm...</span>
-              </div>
-            )}
-
-            {!loading && safeStores.length === 0 && (
-              <div className="text-center text-gray-400 mt-10 italic">
-                <div className="text-4xl mb-2">🤔</div>
-                <p>Không tìm thấy quán nào.</p>
-              </div>
-            )}
-
             {!loading && safeStores.length > 0 && (
               <div className="grid grid-cols-2 gap-3">
                 {safeStores.map((store: Store) => (
@@ -137,18 +121,6 @@ const HomePage: React.FC = () => {
                     <Text size="xxSmall" className="text-gray-500 line-clamp-1 mb-2">
                       {store.address}
                     </Text>
-
-                    <div className="mt-auto flex gap-1 overflow-hidden">
-                      {store.vouchers && store.vouchers.length > 0 ? (
-                        <span className="text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded border border-orange-100 whitespace-nowrap font-medium">
-                          Giảm {store.vouchers[0].discount}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
-                          Chưa có mã
-                        </span>
-                      )}
-                    </div>
                   </div>
                 ))}
               </div>
