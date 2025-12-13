@@ -37,7 +37,7 @@ export const usePublicStore = () => {
         setLoading(false);
       }
     },
-    [userLocation, stores, setStores]
+    [userLocation, setStores]
   );
 
   const search = useCallback(

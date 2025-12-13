@@ -12,7 +12,7 @@ FILE PATH: app-config.json
     },
     "statusBar": "transparent",
     "actionBarHidden": true,
-    "hideIOSSafeAreaBottom": true,
+    "hideIOSSafeAreaBottom": false,
     "hideAndroidBottomNavigationBar": false
   },
   "listCSS": [],
@@ -890,6 +890,7 @@ export const usePublicStore = () => {
       const category = params?.category || 'Tất cả';
 
       if (stores.length > 0 && !params?.forceRefresh && category === 'Tất cả') return;
+
       if (!lat || !lng) return;
 
       setLoading(true);
@@ -1362,8 +1363,8 @@ const HomePage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchNearby();
-  }, []);
+    fetchNearby({ forceRefresh: true });
+  }, [fetchNearby]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -3716,7 +3717,7 @@ FILE PATH: tsconfig.json
 ================================================
 FILE PATH: www\app-config.json
 ================================================
-{"app":{"title":"zaui-LoctionVoucher","textColor":{"light":"black","dark":"white"},"statusBar":"transparent","actionBarHidden":true,"hideIOSSafeAreaBottom":true,"hideAndroidBottomNavigationBar":false},"listCSS":["assets/index-bYF4fNSH.css"],"listSyncJS":["assets/index.C19gz2Gs.module.js"],"listAsyncJS":[],"pages":[]}
+{"app":{"title":"zaui-LoctionVoucher","textColor":{"light":"black","dark":"white"},"statusBar":"transparent","actionBarHidden":true,"hideIOSSafeAreaBottom":false,"hideAndroidBottomNavigationBar":false},"listCSS":["assets/index-bYF4fNSH.css"],"listSyncJS":["assets/index.DHYXlH7e.module.js"],"listAsyncJS":[],"pages":[]}
 
 ================================================
 FILE PATH: zmp-cli.json

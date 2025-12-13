@@ -32,7 +32,7 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     fetchNearby({ forceRefresh: true });
-  }, [fetchNearby]);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
