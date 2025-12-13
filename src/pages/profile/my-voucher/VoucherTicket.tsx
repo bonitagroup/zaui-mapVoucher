@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, Button } from 'zmp-ui';
+import { formatDateVN, formatCountdown } from '@/utils/dateFormatter';
 
 interface VoucherTicketProps {
   item: any;
@@ -8,35 +9,15 @@ interface VoucherTicketProps {
 }
 
 const VoucherTicket: React.FC<VoucherTicketProps> = ({ item, onUse, isHistory = false }) => {
-  // Format ngày hết hạn (VD: 20/11/2024)
-  const endDate = new Date(item.end_date);
-  const dateString = endDate.toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  const dateString = formatDateVN(item.end_date);
 
-  // Tính toán đếm ngược
   const now = new Date().getTime();
   const savedTime = new Date(item.saved_at).getTime();
   const holdingTime = (item.holding_time || 30) * 60 * 1000;
+  const endDate = new Date(item.end_date).getTime();
 
-  // Thời gian hết hạn giữ chỗ (nếu có) hoặc hết hạn chương trình
-  const expireTime = Math.min(savedTime + holdingTime, endDate.getTime());
+  const expireTime = Math.min(savedTime + holdingTime, endDate);
   const timeLeft = expireTime - now;
-
-  const formatCountdown = (ms: number) => {
-    if (ms <= 0) return '00:00:00';
-    const totalSec = Math.floor(ms / 1000);
-    const h = Math.floor(totalSec / 3600)
-      .toString()
-      .padStart(2, '0');
-    const m = Math.floor((totalSec % 3600) / 60)
-      .toString()
-      .padStart(2, '0');
-    const s = (totalSec % 60).toString().padStart(2, '0');
-    return `${h}:${m}:${s}`;
-  };
 
   const isFlashSale = item.type === 'FLASH_SALE';
 
@@ -46,7 +27,6 @@ const VoucherTicket: React.FC<VoucherTicketProps> = ({ item, onUse, isHistory = 
         isHistory ? 'opacity-70 grayscale' : ''
       }`}
     >
-      {/* PHẦN TRÁI: Mức giảm giá */}
       <div
         className={`w-[110px] flex flex-col items-center justify-center text-white rounded-l-xl relative ${
           isHistory
@@ -69,7 +49,6 @@ const VoucherTicket: React.FC<VoucherTicketProps> = ({ item, onUse, isHistory = 
         ></div>
       </div>
 
-      {/* PHẦN PHẢI: Thông tin & Hạn sử dụng */}
       <div className="flex-1 bg-white rounded-r-xl p-3 flex flex-col justify-between relative border border-l-0 border-gray-100">
         <div className="absolute -left-2 top-0 w-4 h-4 bg-gray-100 rounded-full mt-[-8px] z-10"></div>
         <div className="absolute -left-2 bottom-0 w-4 h-4 bg-gray-100 rounded-full mb-[-8px] z-10"></div>
@@ -86,12 +65,10 @@ const VoucherTicket: React.FC<VoucherTicketProps> = ({ item, onUse, isHistory = 
 
           {!isHistory && (
             <div className="flex flex-col gap-0.5 mt-1">
-              {/* Hiển thị Hạn sử dụng cụ thể */}
               <Text size="xxSmall" className="text-gray-500 font-medium">
                 HSD: {dateString}
               </Text>
 
-              {/* Hiển thị đếm ngược */}
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-gray-400">Giữ vé trong:</span>
                 <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-1 rounded">

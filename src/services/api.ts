@@ -18,6 +18,14 @@ api.interceptors.response.use(
     return response.data;
   },
   (error: AxiosError) => {
+    if (error.response) {
+      if (error.response.status === 429) {
+        console.warn('⚠️ Server đang quá tải, vui lòng chờ chút!');
+      }
+
+      if (error.response.status === 401) {
+      }
+    }
     console.error('API Error:', error.response || error.message);
     return Promise.reject(error);
   }

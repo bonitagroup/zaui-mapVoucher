@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Page, Input, Box, Text, Icon } from 'zmp-ui';
-import { useStore } from '@/hooks/useStore';
+import { usePublicStore } from '@/hooks/usePublicStore';
 import { useNavigate } from 'react-router-dom';
 import WelcomeHeader from './WelcomeHeader';
 import TrendingList from './TrendingList';
@@ -8,7 +8,7 @@ import FlashSaleList from './FlashSaleList';
 import { Store } from '@/types/store';
 
 const HomePage: React.FC = () => {
-  const { search, stores, loading, fetchNearby } = useStore();
+  const { search, stores, loading, fetchNearby } = usePublicStore();
   const navigate = useNavigate();
 
   const [keyword, setKeyword] = useState('');
@@ -31,8 +31,8 @@ const HomePage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchNearby();
-  }, []);
+    fetchNearby({ forceRefresh: true });
+  }, [fetchNearby]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -55,8 +55,8 @@ const HomePage: React.FC = () => {
           onClick={() => setIsSearchFocused(true)}
           className="bg-white rounded-full h-12 flex items-center px-4 shadow-sm border border-gray-100 active:scale-95 transition-transform"
         >
-          <Icon icon="zi-search" className="text-gray-500 mr-2" />
-          <Text className="text-gray-400 text-sm flex-1">Bạn muốn ăn gì hôm nay?</Text>
+          <Icon icon="zi-search" className="text-red-600 mr-2" />
+          <Text className="text-gray-400 text-sm flex-1">Tìm kiếm theo yêu cầu?</Text>
         </div>
       </Box>
 

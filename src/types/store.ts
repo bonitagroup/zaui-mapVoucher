@@ -1,11 +1,23 @@
 export interface Voucher {
   id: number;
+  voucher_id?: number;
   title: string;
   code: string;
   discount: string;
+  discount_percent?: number;
   end_date: string;
   type: 'DEFAULT' | 'FLASH_SALE';
-  discount_percent?: number;
+  store_name?: string;
+  status?: 'UNUSED' | 'USED';
+  saved_at?: string;
+  holding_time?: number;
+}
+
+export interface FlashSaleItem extends Voucher {
+  quantity: number;
+  is_saved: boolean;
+  store_id: number;
+  image?: string;
 }
 
 export interface Store {
@@ -17,5 +29,5 @@ export interface Store {
   image?: string;
   category?: string;
   vouchers?: Voucher[];
-  distance?: number; // Khoảng cách tính toán
+  distance?: number;
 }

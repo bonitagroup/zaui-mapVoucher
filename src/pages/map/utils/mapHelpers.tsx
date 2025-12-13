@@ -5,24 +5,30 @@ import { FaUtensils } from 'react-icons/fa';
 import { GiHealthNormal } from 'react-icons/gi';
 import { MdRoomService } from 'react-icons/md';
 import { RiDrinks2Fill } from 'react-icons/ri';
-
 import { Store } from '@/types/store';
 
-export const createCustomPin = (color: string, content: React.ReactNode | string) => {
-  const iconSize = 46;
+export const createCustomPin = (
+  color: string,
+  content: React.ReactNode | string,
+  isSelected: boolean = false
+) => {
+  const iconSize = isSelected ? 60 : 46;
+
   let innerHtml = '';
 
   if (
     typeof content === 'string' &&
     (content.startsWith('http') || content.startsWith('/') || content.startsWith('data:'))
   ) {
-    innerHtml = `<img src="${content}" style="width: 22px; height: 22px; object-fit: contain;" />`;
+    innerHtml = `<img src="${content}" style="width: ${isSelected ? 30 : 22}px; height: ${
+      isSelected ? 30 : 22
+    }px; object-fit: contain;" />`;
   } else {
     innerHtml = renderToStaticMarkup(
       <div
         style={{
           color: color,
-          fontSize: '22px',
+          fontSize: isSelected ? '28px' : '22px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -43,7 +49,15 @@ export const createCustomPin = (color: string, content: React.ReactNode | string
   return L.divIcon({
     className: 'custom-pin-icon',
     html: `
-      <div style="position: relative; width: ${iconSize}px; height: ${iconSize}px; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.3));">
+      <div style="
+        position: relative; 
+        width: ${iconSize}px; 
+        height: ${iconSize}px; 
+        filter: drop-shadow(0 3px ${isSelected ? 8 : 3}px rgba(0,0,0,${isSelected ? 0.5 : 0.3}));
+        transform-origin: bottom center;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        ${isSelected ? 'transform: scale(1.1); z-index: 9999;' : ''}
+      ">
         ${pinSvg}
         <div style="position: absolute; top: 0; left: 0; width: 100%; height: 75%; display: flex; align-items: center; justify-content: center;">
           ${innerHtml}
@@ -58,81 +72,57 @@ export const createCustomPin = (color: string, content: React.ReactNode | string
 
 export const getCategoryContent = (category: string | undefined) => {
   if (!category) return <FaUtensils className="text-slate-600" />;
-
   const cat = category.toLowerCase();
 
-  if (
-    cat.includes('drink') ||
-    cat.includes('coffee') ||
-    cat.includes('cà phê') ||
-    cat.includes('tea') ||
-    cat.includes('trà') ||
-    cat.includes('milktea')
-  ) {
+  if (cat.includes('drink')) {
     return <RiDrinks2Fill className="text-[#597718]" />;
   }
-
-  if (
-    cat.includes('health') ||
-    cat.includes('spa') ||
-    cat.includes('massage') ||
-    cat.includes('dental') ||
-    cat.includes('nha khoa') ||
-    cat.includes('sức khỏe') ||
-    cat.includes('thẩm mỹ')
-  ) {
+  if (cat.includes('health')) {
     return <GiHealthNormal className="text-[#EF4444]" />;
   }
-
-  if (
-    cat.includes('service') ||
-    cat.includes('hotel') ||
-    cat.includes('motel') ||
-    cat.includes('khách sạn') ||
-    cat.includes('nhà nghỉ') ||
-    cat.includes('dịch vụ')
-  ) {
+  if (cat.includes('service')) {
     return <MdRoomService className="text-[#e68d27]" />;
   }
-
   return <FaUtensils className="text-[#AF672D]" />;
 };
 
 const getCategoryColor = (category: string | undefined) => {
   if (!category) return '#EF4444';
-
   const cat = category.toLowerCase();
-
-  if (
-    cat.includes('health') ||
-    cat.includes('spa') ||
-    cat.includes('massage') ||
-    cat.includes('dental') ||
-    cat.includes('nha khoa') ||
-    cat.includes('sức khỏe') ||
-    cat.includes('thẩm mỹ')
-  ) {
+  if (cat.includes('health')) {
     return '#00A300';
   }
-
-  if (
-    cat.includes('service') ||
-    cat.includes('hotel') ||
-    cat.includes('motel') ||
-    cat.includes('khách sạn') ||
-    cat.includes('nhà nghỉ') ||
-    cat.includes('dịch vụ')
-  ) {
+  if (cat.includes('service')) {
     return '#0f80e9';
   }
-
   return '#B4000F';
 };
 
-export const getStorePin = (store: Store) => {
+export const getStorePin = (store: Store, isSelected: boolean) => {
   const pinColor = getCategoryColor(store.category);
-
   const iconContent = getCategoryContent(store.category);
+  return createCustomPin(pinColor, iconContent, isSelected);
+};
 
-  return createCustomPin(pinColor, iconContent);
+export const getUserPin = () => {
+  return L.divIcon({
+    className: 'custom-pin-icon',
+    html: `
+      <div style="
+        width: 60px; 
+        height: 60px; 
+        display: flex; 
+        justify-content: center; 
+        align-items: flex-end;
+      ">
+        <img 
+          src="https://cdn-icons-png.flaticon.com/512/9356/9356230.png" 
+          class="user-marker-bounce" 
+          style="width: 100%; height: 100%; object-fit: contain;"
+        />
+      </div>
+    `,
+    iconSize: [60, 60],
+    iconAnchor: [30, 60],
+  });
 };

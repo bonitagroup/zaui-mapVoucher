@@ -6,6 +6,9 @@ import { events, EventName } from 'zmp-sdk/apis';
 import api from '@/services/api';
 import { User } from '@/types/user';
 
+let lastSyncTime = 0;
+const SYNC_COOLDOWN = 5 * 60 * 1000;
+
 const syncUserToBackend = async (zaloUserInfo: {
   name: string;
   avatar: string;
@@ -13,7 +16,6 @@ const syncUserToBackend = async (zaloUserInfo: {
 }): Promise<User | null> => {
   try {
     const accessToken = await getAccessToken({});
-
     const res: any = await api.post(
       '/api/user/sync',
       {
@@ -26,7 +28,6 @@ const syncUserToBackend = async (zaloUserInfo: {
         },
       }
     );
-
     return res?.data ?? null;
   } catch (e) {
     console.error('Lỗi đồng bộ User:', e);
@@ -51,11 +52,19 @@ export const useUserInit = () => {
         });
 
         if (userInfo) {
-          const userFromBackend = await syncUserToBackend({
-            id: userInfo.id,
-            name: userInfo.name,
-            avatar: userInfo.avatar,
-          });
+          const now = Date.now();
+          let userFromBackend: User | null = null;
+
+          if (now - lastSyncTime > SYNC_COOLDOWN || isInitialLoad) {
+            userFromBackend = await syncUserToBackend({
+              id: userInfo.id,
+              name: userInfo.name,
+              avatar: userInfo.avatar,
+            });
+            if (userFromBackend) {
+              lastSyncTime = now;
+            }
+          }
 
           if (userFromBackend) {
             setUser(userFromBackend);
@@ -79,10 +88,8 @@ export const useUserInit = () => {
   );
 
   useEffect(() => {
-    // Chạy lần đầu khi mount
     initializeUser(true);
 
-    // Chạy lại khi App được mở lại từ background (Resume)
     const onAppResume = () => {
       initializeUser(false);
     };

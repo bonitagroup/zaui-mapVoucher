@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 import { Sheet, Button, Text, Box } from 'zmp-ui';
-import { useStore } from '@/hooks/useStore';
+import { usePublicStore } from '@/hooks/usePublicStore';
+import { useMyWallet } from '@/hooks/useMyWallet';
 import { Voucher } from '@/types/store';
 
 const StoreDetailSheet = () => {
-  const { selectedStore, setSelectedStore, saveVoucher, myVouchers } = useStore();
+  const { selectedStore, setSelectedStore } = usePublicStore();
+  const { saveVoucher, myVouchers } = useMyWallet();
 
   const vouchers = selectedStore?.vouchers || [];
 

@@ -1,12 +1,6 @@
-import React from 'react';
-import {
-  FaFilter,
-  FaUtensils,
-  FaHeartbeat,
-  FaConciergeBell,
-  FaLayerGroup,
-  FaTimes,
-} from 'react-icons/fa';
+import React, { useMemo } from 'react';
+import { FaFilter, FaTimes } from 'react-icons/fa';
+import { MAP_CATEGORY_CONFIG, CATEGORY_LABELS } from '@/constants/categories'; // Import mới
 
 interface MapFilterButtonProps {
   selectedCategory: string;
@@ -21,23 +15,21 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
   isOpen,
   setIsOpen,
 }) => {
-  const filterOptions = [
-    { label: 'Tất cả', icon: <FaLayerGroup />, color: 'bg-gray-600', ring: 'ring-gray-300' },
-    { label: 'Sức khỏe', icon: <FaHeartbeat />, color: 'bg-green-600', ring: 'ring-green-300' },
-    { label: 'Dịch vụ', icon: <FaConciergeBell />, color: 'bg-pink-500', ring: 'ring-pink-300' },
-    { label: 'Ăn uống', icon: <FaUtensils />, color: 'bg-red-500', ring: 'ring-red-300' },
-  ];
+  const activeOption = useMemo(
+    () => MAP_CATEGORY_CONFIG.find((opt) => opt.label === selectedCategory),
+    [selectedCategory]
+  );
 
   return (
     <div className="flex flex-col items-end gap-4 pointer-events-none relative z-[2000]">
       <div className="flex flex-col items-end gap-3 mb-1">
-        {filterOptions.map((opt, index) => {
+        {MAP_CATEGORY_CONFIG.map((opt, index) => {
           const transitionDelay = isOpen ? `${index * 50}ms` : '0ms';
           const isSelected = selectedCategory === opt.label;
 
           return (
             <div
-              key={opt.label}
+              key={opt.key}
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectCategory(opt.label);
@@ -55,10 +47,10 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
             >
               <span
                 className={`
-                bg-white/90 backdrop-blur-md text-gray-700 text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm border border-gray-100
-                transition-all duration-200
-                ${isSelected ? 'text-blue-600' : ''}
-              `}
+                  bg-white/90 backdrop-blur-md text-gray-700 text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm border border-gray-100
+                  transition-all duration-200
+                  ${isSelected ? `text-blue-600 ring-2 ${opt.ringColor}` : ''}
+                `}
               >
                 {opt.label}
               </span>
@@ -67,7 +59,7 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
                 className={`
                   w-10 h-10 rounded-full shadow-lg flex items-center justify-center text-white transition-all duration-200 border-2 border-white
                   ${opt.color}
-                  ${isSelected ? `ring-2 ${opt.ring} scale-110` : 'active:scale-95'}
+                  ${isSelected ? 'scale-110 ring-2 ring-white shadow-xl' : 'active:scale-95'}
                 `}
               >
                 <div className="text-sm drop-shadow-md">{opt.icon}</div>
@@ -83,36 +75,36 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
           setIsOpen(!isOpen);
         }}
         className={`
-          w-12 h-12 rounded-full shadow-xl flex items-center justify-center pointer-events-auto 
-          transition-all duration-500 ease-in-out relative border-2 border-white
-          ${isOpen ? 'bg-gray-800 rotate-90' : 'bg-white hover:bg-gray-50'}
+          w-14 h-14 rounded-full shadow-2xl flex items-center justify-center pointer-events-auto 
+          transition-all duration-500 ease-in-out relative border-4 border-white
           ${
-            !isOpen && selectedCategory !== 'Tất cả' ? 'bg-blue-600 text-white border-blue-100' : ''
+            isOpen
+              ? 'bg-gray-800 rotate-90'
+              : activeOption && selectedCategory !== CATEGORY_LABELS.ALL
+              ? activeOption.activeColor
+              : 'bg-white hover:bg-gray-50'
           }
         `}
       >
         <div
-          className={`transition-all duration-300 ${
-            isOpen ? 'scale-0 opacity-0 absolute' : 'scale-100 opacity-100'
+          className={`transition-all duration-300 absolute inset-0 flex items-center justify-center ${
+            isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'
           }`}
         >
-          <FaFilter
-            size={16}
-            className={selectedCategory !== 'Tất cả' ? 'text-white' : 'text-gray-600'}
-          />
+          {selectedCategory !== CATEGORY_LABELS.ALL && activeOption ? (
+            <div className="text-white text-xl drop-shadow-md">{activeOption.icon}</div>
+          ) : (
+            <FaFilter size={20} className="text-gray-600" />
+          )}
         </div>
 
         <div
-          className={`transition-all duration-300 ${
-            isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 absolute'
+          className={`transition-all duration-300 absolute inset-0 flex items-center justify-center ${
+            isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 rotate-[-90deg]'
           }`}
         >
-          <FaTimes size={18} className="text-white" />
+          <FaTimes size={22} className="text-white" />
         </div>
-
-        {!isOpen && selectedCategory !== 'Tất cả' && (
-          <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
-        )}
       </button>
 
       {isOpen && <div className="fixed inset-0 z-[-1]" onClick={() => setIsOpen(false)}></div>}

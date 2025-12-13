@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Page, Header, Box, useSnackbar, Tabs } from 'zmp-ui';
-import { useStore } from '@/hooks/useStore';
+import { useMyWallet } from '@/hooks/useMyWallet';
 import VoucherTicket from './VoucherTicket';
 import { useNavigate } from 'react-router-dom';
 
 const MyVoucherPage: React.FC = () => {
-  const { myVouchers, fetchMyWallet, useVoucher, loading } = useStore();
+  const { myVouchers, fetchMyWallet, useVoucher, loading } = useMyWallet();
   const { openSnackbar } = useSnackbar();
   const navigate = useNavigate();
   const [, setTick] = useState(0);
@@ -26,7 +26,6 @@ const MyVoucherPage: React.FC = () => {
     }
   };
 
-  // Phân loại Voucher
   const { activeVouchers, historyVouchers } = useMemo(() => {
     const active: any[] = [];
     const history: any[] = [];
@@ -35,8 +34,8 @@ const MyVoucherPage: React.FC = () => {
     (myVouchers || []).forEach((item: any) => {
       const savedTime = new Date(item.saved_at).getTime();
       const holdingTime = (item.holding_time || 30) * 60 * 1000;
-      const expireHoldTime = savedTime + holdingTime; // Hết hạn giữ chỗ
-      const endDate = new Date(item.end_date).getTime(); // Hết hạn chương trình
+      const expireHoldTime = savedTime + holdingTime;
+      const endDate = new Date(item.end_date).getTime();
 
       const isExpired = now > endDate;
       const isHoldExpired = now > expireHoldTime;
