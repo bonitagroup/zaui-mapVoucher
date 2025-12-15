@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { FaTimes } from 'react-icons/fa';
-import { CiFilter } from 'react-icons/ci';
+import { FiFilter } from 'react-icons/fi';
+import { IoClose } from 'react-icons/io5';
 import { MAP_CATEGORY_CONFIG, CATEGORY_LABELS } from '@/constants/categories';
 
 interface MapFilterButtonProps {
@@ -22,7 +22,7 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
   );
 
   return (
-    <div className="flex flex-col items-end gap-4 pointer-events-none relative z-[2000]">
+    <div className="flex flex-col items-end gap-2 pointer-events-none relative z-[2000]">
       <div className="flex flex-col items-end gap-3 mb-1">
         {MAP_CATEGORY_CONFIG.map((opt, index) => {
           const transitionDelay = isOpen ? `${index * 50}ms` : '0ms';
@@ -76,14 +76,14 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
           setIsOpen(!isOpen);
         }}
         className={`
-          w-14 h-14 rounded-full shadow-2xl flex items-center justify-center pointer-events-auto 
-          transition-all duration-500 ease-in-out relative border-4 border-white
+          w-11 h-11 rounded-full shadow-2xl flex items-center justify-center pointer-events-auto 
+          transition-all duration-500 ease-in-out relative
           ${
             isOpen
               ? 'bg-gray-800 rotate-90'
               : activeOption && selectedCategory !== CATEGORY_LABELS.ALL
               ? activeOption.activeColor
-              : 'bg-white hover:bg-gray-50'
+              : 'bg-[#D83231] hover:bg-[#d38080]'
           }
         `}
       >
@@ -95,7 +95,7 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
           {selectedCategory !== CATEGORY_LABELS.ALL && activeOption ? (
             <div className="text-white text-xl drop-shadow-md">{activeOption.icon}</div>
           ) : (
-            <CiFilter size={15} className="text-gray-600" />
+            <FiFilter size={25} className="text-white" />
           )}
         </div>
 
@@ -104,7 +104,7 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
             isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 rotate-[-90deg]'
           }`}
         >
-          <CiFilter size={22} className="text-white" />
+          <IoClose size={22} className="text-white" />
         </div>
       </button>
 
