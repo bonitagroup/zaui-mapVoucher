@@ -382,6 +382,81 @@ export default React.memo(StoreCard, (prev, next) => {
 
 
 ================================================
+FILE PATH: src\components\map\StoreListItem.tsx
+================================================
+import React, { useMemo } from 'react';
+import { Box, Text, Button } from 'zmp-ui';
+import { Store } from '@/types/store';
+import { FaStar } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+
+interface StoreListItemProps {
+  store: Store;
+}
+
+const StoreListItem: React.FC<StoreListItemProps> = ({ store }) => {
+  const navigate = useNavigate();
+
+  return (
+    <div
+      id={`store-item-${store.id}`}
+      className="bg-white border border-red-200 rounded-xl p-3 flex gap-3 shadow-sm active:opacity-70 transition-opacity"
+      onClick={() => navigate(`/store/${store.id}`)}
+    >
+      <div className="w-24 h-24 flex-shrink-0 relative">
+        <img
+          src={store.image || 'https://via.placeholder.com/150'}
+          className="w-full h-full object-cover rounded-lg bg-gray-100"
+          alt={store.name}
+          onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150')}
+        />
+      </div>
+
+      <div className="flex-1 flex flex-col justify-between min-w-0">
+        <div>
+          <div className="flex justify-between items-start">
+            <Text.Title size="small" className="font-bold text-gray-800 line-clamp-1 flex-1 pr-2">
+              {store.name}
+            </Text.Title>
+            <Text size="xxSmall" className="text-red-500 font-bold whitespace-nowrap">
+              {store.distance ? `${store.distance.toFixed(1)} km` : ''}
+            </Text>
+          </div>
+
+          <Text size="xxSmall" className="text-gray-500 mb-1">
+            {store.category || 'Nhà hàng'}
+            <span className="mx-1">•</span>
+            <span className="text-yellow-500 inline-flex items-center gap-0.5">
+              4.8 <FaStar size={10} />
+            </span>
+          </Text>
+        </div>
+
+        <div className="flex items-end justify-between mt-2">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm relative overflow-hidden">
+              <span className="border-r border-white/30 pr-1 mr-1 border-dashed">VOUCHER</span>
+              <span>{store.vouchers?.length || 0}</span>
+              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full"></div>
+            </div>
+          </div>
+
+          <Button
+            size="small"
+            className="h-8 bg-[#D83231] text-white font-bold text-xs rounded-lg px-3 shadow-red-100 shadow-md border-none"
+          >
+            Xem chi tiết
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default React.memo(StoreListItem);
+
+
+================================================
 FILE PATH: src\components\navigation.tsx
 ================================================
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -644,21 +719,26 @@ import {
   FaHeartbeat,
   FaConciergeBell,
   FaUtensils,
-  FaCoffee,
-  FaHamburger,
-  FaMugHot,
+  FaTicketAlt,
+  FaBolt,
+  FaRunning,
+  FaGamepad,
 } from 'react-icons/fa';
+import { RiDrinks2Fill } from 'react-icons/ri';
 
 export const CATEGORY_LABELS = {
   ALL: 'Tất cả',
+  VOUCHERHOT: 'Voucher Hot',
+  FLASH_SALE: 'Flash Sale',
   HEALTH: 'Sức khỏe',
   SERVICE: 'Dịch vụ',
   FOOD: 'Ăn uống',
-  FLASH_SALE: 'Flash Sale',
   DRINK: 'Đồ uống',
-  SNACK: 'Ăn vặt',
+  SPORT: 'Thể thao',
+  PLAYGROUND: 'Giải trí',
 };
 
+// 1. CONFIG CHO NÚT LỌC (HÌNH PHỄU) - Giữ nguyên các danh mục quán
 export const MAP_CATEGORY_CONFIG = [
   {
     key: 'ALL',
@@ -669,20 +749,20 @@ export const MAP_CATEGORY_CONFIG = [
     ringColor: 'ring-gray-100',
   },
   {
-    key: 'HEALTH',
-    label: CATEGORY_LABELS.HEALTH,
-    icon: <FaHeartbeat />,
-    color: 'bg-green-600',
-    activeColor: 'bg-green-600',
-    ringColor: 'ring-green-100',
-  },
-  {
     key: 'FOOD',
     label: CATEGORY_LABELS.FOOD,
     icon: <FaUtensils />,
     color: 'bg-red-500',
     activeColor: 'bg-red-500',
     ringColor: 'ring-red-100',
+  },
+  {
+    key: 'HEALTH',
+    label: CATEGORY_LABELS.HEALTH,
+    icon: <FaHeartbeat />,
+    color: 'bg-pink-500',
+    activeColor: 'bg-pink-500',
+    ringColor: 'ring-pink-100',
   },
   {
     key: 'SERVICE',
@@ -692,17 +772,40 @@ export const MAP_CATEGORY_CONFIG = [
     activeColor: 'bg-blue-500',
     ringColor: 'ring-blue-100',
   },
+  {
+    key: 'SPORT',
+    label: CATEGORY_LABELS.SPORT,
+    icon: <FaRunning />,
+    color: 'bg-cyan-500',
+    activeColor: 'bg-cyan-500',
+    ringColor: 'ring-cyan-100',
+  },
+  {
+    key: 'PLAYGROUND',
+    label: CATEGORY_LABELS.PLAYGROUND,
+    icon: <FaGamepad />,
+    color: 'bg-purple-500',
+    activeColor: 'bg-purple-500',
+    ringColor: 'ring-purple-100',
+  },
 ];
 
-export const VOUCHER_TABS = [
-  CATEGORY_LABELS.ALL,
-  CATEGORY_LABELS.FLASH_SALE,
-  'F&B',
-  'Cafe',
-  CATEGORY_LABELS.SNACK,
-  'Nhà hàng',
-  'Trà sữa',
+export const TOP_BAR_FILTERS = [
+  {
+    key: 'ALL',
+    label: CATEGORY_LABELS.VOUCHERHOT,
+    icon: <FaTicketAlt />,
+    color: 'bg-red-500',
+  },
+  {
+    key: 'FLASH_SALE',
+    label: CATEGORY_LABELS.FLASH_SALE,
+    icon: <FaBolt />,
+    color: 'bg-yellow-400',
+  },
 ];
+
+export const VOUCHER_TABS = [CATEGORY_LABELS.ALL, CATEGORY_LABELS.FLASH_SALE];
 
 
 ================================================
@@ -759,6 +862,17 @@ FILE PATH: src\css\app.scss
 .custom-pin-icon {
   background: none !important;
   border: none !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
 }
 
 
@@ -1523,7 +1637,6 @@ const HomePage: React.FC = () => {
         lat: position[0],
         lng: position[1],
         category: selectedCategory,
-        forceRefresh: true,
       });
       fetchFlashSales(selectedCategory);
     }
@@ -1857,73 +1970,68 @@ export default WelcomeHeader;
 FILE PATH: src\pages\map\index.tsx
 ================================================
 import React, { useEffect, useState, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import { Icon, Box, Button, Text } from 'zmp-ui';
+import { Box, Text, Page } from 'zmp-ui';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { usePublicStore } from '@/hooks/usePublicStore';
 import { Store } from '@/types/store';
-import { getStorePin } from './utils/mapHelpers';
-import { MapController, ResizeMapListener } from './MapControls';
+import { getStorePin, getUserPin } from './utils/mapHelpers';
+import { MapController } from './MapControls';
 import MapSearchBar from './MapSearchBar';
-import StoreBottomSheet from './StoreBottomSheet';
+import StoreListSection from './StoreListSection';
 import MapFilterButton from './MapFilterButton';
-import { getUserPin } from './utils/mapHelpers';
 import { CATEGORY_LABELS } from '@/constants/categories';
+import { FaLocationArrow } from 'react-icons/fa';
+
+const MapFix = () => {
+  const map = useMap();
+  useEffect(() => {
+    setTimeout(() => map.invalidateSize(), 0);
+    setTimeout(() => map.invalidateSize(), 500);
+  }, [map]);
+  return null;
+};
 
 const MapClickHandler = ({ onClick }: { onClick: () => void }) => {
-  useMapEvents({
-    click: () => {
-      onClick();
-    },
-  });
+  useMapEvents({ click: onClick });
   return null;
 };
 
 const MapViewComponent: React.FC = () => {
   const { position, requestLocationForce, loading: locLoading, isDenied } = useUserLocation();
   const { stores, fetchNearby, selectedStore, setSelectedStore } = usePublicStore();
-
   const [keyword, setKeyword] = useState('');
   const [targetZoom, setTargetZoom] = useState(16);
-  const [isSheetCollapsed, setIsSheetCollapsed] = useState(false);
-
   const [locateTrigger, setLocateTrigger] = useState(0);
-
   const [selectedCategory, setSelectedCategory] = useState<string>(CATEGORY_LABELS.ALL);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-
-  useEffect(() => {
-    if (!position[0] || !position[1]) return;
-    const timer = setTimeout(() => {
-      if (fetchNearby) {
-        fetchNearby({ category: selectedCategory });
-      }
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [position, fetchNearby, selectedCategory]);
 
   useEffect(() => {
     requestLocationForce();
   }, []);
 
+  useEffect(() => {
+    if (!position[0] || !position[1]) return;
+    const timer = setTimeout(() => {
+      if (fetchNearby) fetchNearby({ category: selectedCategory, forceRefresh: true });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [position, fetchNearby, selectedCategory]);
+
+  const handleTagClick = (tag: string) => {
+    if (selectedCategory === tag) setSelectedCategory(CATEGORY_LABELS.ALL);
+    else setSelectedCategory(tag);
+  };
+
   const filteredStores = useMemo(() => {
     if (!stores) return [];
     let result = stores;
-    if (keyword.trim()) {
-      const lowerKeyword = keyword.toLowerCase();
-      result = result.filter(
-        (s) =>
-          s.name.toLowerCase().includes(lowerKeyword) ||
-          (s.category && s.category.toLowerCase().includes(lowerKeyword)) ||
-          (s.vouchers && s.vouchers.some((v: any) => v.title.toLowerCase().includes(lowerKeyword)))
-      );
-    }
     return result;
-  }, [stores, keyword]);
+  }, [stores, keyword, selectedCategory]);
 
   const handleLocateMe = () => {
     requestLocationForce();
@@ -1932,50 +2040,37 @@ const MapViewComponent: React.FC = () => {
   };
 
   return (
-    <Box className="w-full h-full relative bg-gray-100 flex flex-col">
-      <MapSearchBar keyword={keyword} setKeyword={setKeyword} />
+    <Page className="bg-gray-100 flex flex-col h-screen overflow-y-auto scroll-smooth">
+      <Box className="sticky top-0 z-[1000] bg-[#D83231] shadow-md pb-2">
+        <Box className="pt-4 pl-4 pb-2">
+          <Text className="font-bold text-2xl text-white">Bản đồ</Text>
+          <Text className="font-normal text-sm text-white opacity-90">
+            voucher ở mọi nơi, tìm kiếm ngay nào !!!
+          </Text>
+        </Box>
+        <div className="px-2">
+          <MapSearchBar
+            keyword={keyword}
+            setKeyword={setKeyword}
+            selectedCategory={selectedCategory}
+            onTagClick={handleTagClick}
+          />
+        </div>
+      </Box>
 
-      <Box className="absolute inset-0 z-0">
-        {isDenied && (
-          <div className="absolute inset-0 z-[3000] bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-4 border border-red-100 shadow-sm animate-bounce">
-              <Icon icon="zi-poll-solid" className="text-red-500 text-4xl" />
-            </div>
-
-            <Text.Title size="normal" className="font-bold text-gray-800 mb-2">
-              Cho phép định vị?
-            </Text.Title>
-
-            <Text size="small" className="text-gray-500 mb-6 max-w-[280px]">
-              Để tìm quán gần bạn, vui lòng bấm nút bên dưới và chọn <strong>"Cho phép"</strong> khi
-              được hỏi.
-            </Text>
-
-            <Button
-              onClick={() => requestLocationForce()}
-              className="bg-[#D83231] font-bold rounded-full shadow-lg shadow-red-200"
-            >
-              Cấp quyền truy cập
-            </Button>
-
-            <div
-              className="mt-6 text-xs text-gray-400 font-medium cursor-pointer underline"
-              onClick={() => requestLocationForce()}
-            >
-              Thử lại
-            </div>
-          </div>
-        )}
+      <div className="w-full h-[65svh] relative shrink-0 z-0">
         <MapContainer
           center={position}
           zoom={18}
           style={{ height: '100%', width: '100%' }}
           zoomControl={false}
+          dragging={true}
+          scrollWheelZoom={false}
         >
-          <MapClickHandler onClick={() => setShowFilterMenu(false)} />
+          <MapFix />
 
+          <MapClickHandler onClick={() => setShowFilterMenu(false)} />
           <TileLayer url="http://mt0.google.com/vt/lyrs=m&hl=vi&x={x}&y={y}&z={z}" />
-          <ResizeMapListener isSheetCollapsed={isSheetCollapsed} />
 
           <MapController
             center={position}
@@ -1991,9 +2086,7 @@ const MapViewComponent: React.FC = () => {
           <MarkerClusterGroup chunkedLoading showCoverageOnHover={false} maxClusterRadius={10}>
             {filteredStores.map((store: Store) => {
               if (!store.lat || !store.lng) return null;
-
               const isSelected = selectedStore?.id === store.id;
-
               return (
                 <Marker
                   key={store.id}
@@ -2004,7 +2097,6 @@ const MapViewComponent: React.FC = () => {
                     click: () => {
                       setTargetZoom(18);
                       setSelectedStore(store);
-                      setIsSheetCollapsed(false);
                       setShowFilterMenu(false);
                     },
                   }}
@@ -2014,15 +2106,15 @@ const MapViewComponent: React.FC = () => {
           </MarkerClusterGroup>
         </MapContainer>
 
-        <Box className="absolute right-4 bottom-1/2 z-[999] flex flex-col items-end gap-3 pointer-events-none translate-y-12">
+        <Box className="absolute right-4 bottom-10 z-[400] flex flex-col items-end">
           <button
             onClick={handleLocateMe}
-            className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-red-500 active:scale-90 transition-transform pointer-events-auto"
+            className="w-11 h-11 rounded-full shadow-md flex items-center justify-center text-white bg-[#D83231] active:scale-90 transition-transform"
           >
             {locLoading ? (
-              <div className="w-6 h-6 border-2 border-red-500 border-t-transparent animate-spin rounded-full"></div>
+              <div className="animate-spin w-4 h-4 border-2 border-white rounded-full border-t-transparent" />
             ) : (
-              <Icon icon="zi-location-solid" />
+              <FaLocationArrow />
             )}
           </button>
 
@@ -2033,18 +2125,10 @@ const MapViewComponent: React.FC = () => {
             setIsOpen={setShowFilterMenu}
           />
         </Box>
-      </Box>
+      </div>
 
-      <StoreBottomSheet
-        isSheetCollapsed={isSheetCollapsed}
-        setIsSheetCollapsed={setIsSheetCollapsed}
-        selectedStore={selectedStore}
-        setSelectedStore={setSelectedStore}
-        keyword={keyword}
-        filteredStores={filteredStores}
-        setTargetZoom={setTargetZoom}
-      />
-    </Box>
+      <StoreListSection filteredStores={filteredStores} selectedStore={selectedStore} />
+    </Page>
   );
 };
 
@@ -2130,8 +2214,9 @@ export const ResizeMapListener = ({ isSheetCollapsed }: { isSheetCollapsed: bool
 FILE PATH: src\pages\map\MapFilterButton.tsx
 ================================================
 import React, { useMemo } from 'react';
-import { FaFilter, FaTimes } from 'react-icons/fa';
-import { MAP_CATEGORY_CONFIG, CATEGORY_LABELS } from '@/constants/categories'; // Import mới
+import { FiFilter } from 'react-icons/fi';
+import { IoClose } from 'react-icons/io5';
+import { MAP_CATEGORY_CONFIG, CATEGORY_LABELS } from '@/constants/categories';
 
 interface MapFilterButtonProps {
   selectedCategory: string;
@@ -2152,7 +2237,7 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
   );
 
   return (
-    <div className="flex flex-col items-end gap-4 pointer-events-none relative z-[2000]">
+    <div className="flex flex-col items-end gap-2 pointer-events-none relative z-[2000]">
       <div className="flex flex-col items-end gap-3 mb-1">
         {MAP_CATEGORY_CONFIG.map((opt, index) => {
           const transitionDelay = isOpen ? `${index * 50}ms` : '0ms';
@@ -2206,14 +2291,14 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
           setIsOpen(!isOpen);
         }}
         className={`
-          w-14 h-14 rounded-full shadow-2xl flex items-center justify-center pointer-events-auto 
-          transition-all duration-500 ease-in-out relative border-4 border-white
+          w-11 h-11 rounded-full shadow-2xl flex items-center justify-center pointer-events-auto 
+          transition-all duration-500 ease-in-out relative
           ${
             isOpen
               ? 'bg-gray-800 rotate-90'
               : activeOption && selectedCategory !== CATEGORY_LABELS.ALL
               ? activeOption.activeColor
-              : 'bg-white hover:bg-gray-50'
+              : 'bg-[#D83231] hover:bg-[#d38080]'
           }
         `}
       >
@@ -2225,7 +2310,7 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
           {selectedCategory !== CATEGORY_LABELS.ALL && activeOption ? (
             <div className="text-white text-xl drop-shadow-md">{activeOption.icon}</div>
           ) : (
-            <FaFilter size={20} className="text-gray-600" />
+            <FiFilter size={25} className="text-white" />
           )}
         </div>
 
@@ -2234,7 +2319,7 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
             isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 rotate-[-90deg]'
           }`}
         >
-          <FaTimes size={22} className="text-white" />
+          <IoClose size={22} className="text-white" />
         </div>
       </button>
 
@@ -2251,41 +2336,61 @@ FILE PATH: src\pages\map\MapSearchBar.tsx
 ================================================
 import React from 'react';
 import { Box, Input, Text as ZText } from 'zmp-ui';
-import { MAP_CATEGORY_CONFIG } from '@/constants/categories';
+import { TOP_BAR_FILTERS } from '@/constants/categories';
 
 interface MapSearchBarProps {
   keyword: string;
   setKeyword: (val: string) => void;
-  onTagClick?: (tag: string) => void;
+  selectedCategory: string;
+  onTagClick: (tag: string) => void;
 }
 
-const MapSearchBar: React.FC<MapSearchBarProps> = ({ keyword, setKeyword, onTagClick }) => {
-  const suggestions = MAP_CATEGORY_CONFIG.filter((c) => c.key !== 'ALL');
+const MapSearchBar: React.FC<MapSearchBarProps> = ({
+  keyword,
+  setKeyword,
+  selectedCategory,
+  onTagClick,
+}) => {
+  const suggestions = TOP_BAR_FILTERS;
 
   return (
-    <Box className="absolute top-0 left-0 mt-3 right-0 z-[1000] p-4 flex flex-col gap-3 pointer-events-none">
-      <Box className="bg-white rounded-xl shadow-md pointer-events-auto flex items-center pr-2">
+    <Box className="absolute top-0 left-0 mt-[80px] right-0 z-[1000] p-4 flex flex-col gap-2 pointer-events-none">
+      <Box className="bg-white rounded-full shadow-md pointer-events-auto flex items-center pr-2">
         <Input.Search
-          placeholder="Tìm món lẩu, nướng..."
-          className="border-none h-11 flex-1"
+          placeholder="Tìm kiếm theo yêu cầu..."
+          className="border-none h-9 ml-3 flex-1"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           clearable
         />
       </Box>
       <Box className="flex gap-2 pointer-events-auto overflow-x-auto scrollbar-hide">
-        {suggestions.map((item) => (
-          <Box
-            key={item.key}
-            onClick={() => (onTagClick ? onTagClick(item.label) : setKeyword(item.label))}
-            className="bg-white px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 border border-gray-100 active:scale-95 transition-transform"
-          >
-            <Box className={`w-2.5 h-2.5 rounded-full ${item.color}`}></Box>
-            <ZText size="xSmall" className="font-bold text-gray-700">
-              {item.label}
-            </ZText>
-          </Box>
-        ))}
+        {suggestions.map((item) => {
+          const isActive = selectedCategory === item.label;
+
+          return (
+            <Box
+              key={item.key}
+              onClick={() => onTagClick(item.label)}
+              className={`
+                px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 border active:scale-95 transition-all duration-200
+                ${
+                  isActive
+                    ? 'bg-red-50 border-red-500 ring-1 ring-red-500'
+                    : 'bg-white border-gray-100'
+                }
+              `}
+            >
+              <Box className={`w-2.5 h-2.5 rounded-full ${item.color}`}></Box>
+              <ZText
+                size="xSmall"
+                className={`font-bold ${isActive ? 'text-red-600' : 'text-gray-700'}`}
+              >
+                {item.label}
+              </ZText>
+            </Box>
+          );
+        })}
       </Box>
     </Box>
   );
@@ -2295,113 +2400,127 @@ export default MapSearchBar;
 
 
 ================================================
-FILE PATH: src\pages\map\StoreBottomSheet.tsx
+FILE PATH: src\pages\map\StoreListSection.tsx
 ================================================
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, Icon } from 'zmp-ui';
+import React, { useEffect, useRef, useMemo } from 'react';
+import { Box, Text } from 'zmp-ui';
 import { Store } from '@/types/store';
-import StoreCard from '@/components/map/StoreCard';
+import StoreListItem from '@/components/map/StoreListItem';
+import { MdOutlineFilterList } from 'react-icons/md';
 
-interface StoreBottomSheetProps {
-  isSheetCollapsed: boolean;
-  setIsSheetCollapsed: (val: boolean) => void;
-  selectedStore: Store | null;
-  setSelectedStore: (store: Store | null) => void;
-  keyword: string;
+interface StoreListSectionProps {
   filteredStores: Store[];
-  setTargetZoom: (zoom: number) => void;
+  selectedStore: Store | null;
 }
 
-const StoreBottomSheet: React.FC<StoreBottomSheetProps> = ({
-  selectedStore,
-  setSelectedStore,
-  filteredStores,
-  setTargetZoom,
-}) => {
-  const [isVisible, setIsVisible] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
+const StoreListSection: React.FC<StoreListSectionProps> = ({ filteredStores, selectedStore }) => {
+  const hotListRef = useRef<HTMLDivElement>(null);
+  const otherListRef = useRef<HTMLDivElement>(null);
+
+  const hotStores = useMemo(() => {
+    return filteredStores.filter((s) => s.vouchers && s.vouchers.length > 0);
+  }, [filteredStores]);
+
+  const otherStores = useMemo(() => {
+    return filteredStores;
+  }, [filteredStores]);
 
   useEffect(() => {
-    if (selectedStore) {
-      setIsVisible(true);
-      setTimeout(() => {
-        const cardId = `store-card-${selectedStore.id}`;
-        const element = document.getElementById(cardId);
-        if (element) {
-          element.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'center',
-          });
-        }
-      }, 300);
-    }
-  }, [selectedStore]);
+    if (!selectedStore) return;
 
-  const handleSelectStore = useCallback(
-    (store: Store) => {
-      setTargetZoom(18);
-      setSelectedStore(store);
-    },
-    [setTargetZoom, setSelectedStore]
-  );
+    const handleScrollToTop = (container: HTMLDivElement | null, storeId: number) => {
+      if (!container) return;
+
+      const element = container.querySelector(`#store-item-${storeId}`) as HTMLElement;
+
+      if (element) {
+        const containerRect = container.getBoundingClientRect();
+        const elementRect = element.getBoundingClientRect();
+
+        const offset = elementRect.top - containerRect.top;
+
+        container.scrollTo({
+          top: container.scrollTop + offset,
+          behavior: 'smooth',
+        });
+
+        element.classList.add('ring-2', 'ring-red-500');
+        setTimeout(() => element.classList.remove('ring-2', 'ring-red-500'), 5000);
+      }
+    };
+
+    const isHot = hotStores.find((s) => s.id === selectedStore.id);
+    if (isHot) {
+      handleScrollToTop(hotListRef.current, selectedStore.id);
+    } else {
+      handleScrollToTop(otherListRef.current, selectedStore.id);
+    }
+  }, [selectedStore, hotStores]);
 
   return (
-    <>
-      <div
-        className={`fixed left-4 z-[999] transition-all duration-300 ${
-          isVisible ? 'bottom-[370px]' : 'bottom-[60px]'
-        }`}
-      >
-        <button
-          onClick={() => setIsVisible(!isVisible)}
-          className={`
-            flex items-center gap-2 px-4 py-2 rounded-full shadow-lg font-bold text-sm transition-all border border-gray-100
-            ${
-              isVisible
-                ? 'bg-white text-gray-700 hover:bg-gray-50'
-                : 'bg-[#ea4c62] text-white hover:bg-[#d43f54]'
-            }
-          `}
-        >
-          <Icon icon={isVisible ? 'zi-chevron-down' : 'zi-chevron-up'} size={18} />
-          <span>{isVisible ? 'Ẩn' : 'Hiện'}</span>
-        </button>
-      </div>
+    <div className="bg-gray-100 rounded-t-3xl min-h-screen relative z-10 -mt-6 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+      <div className="px-1 pb-safe ">
+        {hotStores.length > 0 && (
+          <div className="mb-6">
+            <div className="flex justify-between flex-col bg-white px-4 py-1 rounded-xl shadow-sm items-center mb-3">
+              <div className="w-12 h-1.5 bg-gray-300 rounded-full opacity-50 mt-2"></div>
 
-      <Box
-        className={`
-          fixed bottom-0 left-0 right-0 z-[1000] pb-safe
-          transition-transform duration-300 ease-in-out
-          ${isVisible ? 'translate-y-0' : 'translate-y-[120%]'}
-        `}
-      >
-        <div
-          ref={scrollRef}
-          className="flex overflow-x-auto gap-3 px-4 pb-6 pt-2 snap-x scrollbar-hide"
-        >
-          {filteredStores.length === 0 ? (
-            <div className="w-full bg-white rounded-xl p-4 pb-16 text-center shadow-lg mx-auto border border-gray-100">
-              <span className="text-gray-500 text-sm">Không tìm thấy quán nào ở khu vực này</span>
+              <div className="flex flex-row items-center justify-between w-full py-1 mb-2">
+                <Text className="font-bold text-gray-700 uppercase text-lg">VOUCHERS HOT</Text>
+                <Box className="flex flex-row gap-1 text-red-500 text-sm border border-red-500 rounded-full px-3 py-1 cursor-pointer active:opacity-60">
+                  <Text className="items-center">Lọc</Text>
+                  <MdOutlineFilterList className="text-2xl" />
+                </Box>
+              </div>
+
+              <div
+                ref={hotListRef}
+                className="flex flex-col gap-3 w-full max-h-[400px] overflow-y-auto scroll-smooth pr-1 custom-scrollbar relative"
+              >
+                {hotStores.map((store) => (
+                  <div key={store.id}>
+                    <StoreListItem store={store} />
+                  </div>
+                ))}
+              </div>
             </div>
-          ) : (
-            filteredStores.map((store) => (
-              <StoreCard
-                key={store.id}
-                store={store}
-                isSelected={selectedStore?.id === store.id}
-                onSelect={handleSelectStore}
-              />
-            ))
-          )}
-          <div className="w-2 shrink-0">&nbsp;</div>
-        </div>
-      </Box>
-    </>
+          </div>
+        )}
+
+        {otherStores.length > 0 && (
+          <div className="mb-20">
+            <div className="flex justify-between flex-col bg-white px-4 py-2 rounded-xl shadow-sm items-center mb-3">
+              <div className="flex flex-row items-center justify-between w-full py-2 mb-2">
+                <div className="flex flex-row items-center justify-between w-full py-1">
+                  <Text className="font-bold text-gray-700 uppercase text-base">
+                    CÓ THỂ BẠN QUAN TÂM
+                  </Text>
+                  <Box className="flex flex-row gap-1 text-red-500 border border-red-500 rounded-full px-3 py-1 cursor-pointer active:opacity-60">
+                    <Text className="items-center">Lọc</Text>
+                    <MdOutlineFilterList className="text-2xl" />
+                  </Box>
+                </div>
+              </div>
+
+              <div
+                ref={otherListRef}
+                className="flex flex-col gap-3 w-full max-h-[650px] overflow-y-auto scroll-smooth pr-1 custom-scrollbar relative"
+              >
+                {otherStores.map((store) => (
+                  <div key={store.id}>
+                    <StoreListItem store={store} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-export default React.memo(StoreBottomSheet);
+export default React.memo(StoreListSection);
 
 
 ================================================
@@ -2410,12 +2529,13 @@ FILE PATH: src\pages\map\utils\mapHelpers.tsx
 import React from 'react';
 import L from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { FaUtensils } from 'react-icons/fa';
+import { FaUtensils, FaRunning, FaGamepad } from 'react-icons/fa';
 import { GiHealthNormal } from 'react-icons/gi';
 import { MdRoomService } from 'react-icons/md';
 import { RiDrinks2Fill } from 'react-icons/ri';
 import { Store } from '@/types/store';
 
+// --- GIỮ NGUYÊN HÀM TẠO PIN ---
 export const createCustomPin = (
   color: string,
   content: React.ReactNode | string,
@@ -2479,40 +2599,56 @@ export const createCustomPin = (
   });
 };
 
+// --- GIỮ NGUYÊN LOGIC ICON ---
 export const getCategoryContent = (category: string | undefined) => {
   if (!category) return <FaUtensils className="text-slate-600" />;
   const cat = category.toLowerCase();
 
-  if (cat.includes('drink')) {
+  if (cat.includes('drink') || cat.includes('cafe') || cat.includes('tea')) {
     return <RiDrinks2Fill className="text-[#597718]" />;
   }
-  if (cat.includes('health')) {
+  if (cat.includes('health') || cat.includes('spa') || cat.includes('gym')) {
     return <GiHealthNormal className="text-[#EF4444]" />;
   }
-  if (cat.includes('service')) {
+  if (cat.includes('service') || cat.includes('hotel')) {
     return <MdRoomService className="text-[#e68d27]" />;
   }
+  if (cat.includes('sport') || cat.includes('soccer') || cat.includes('pool')) {
+    return <FaRunning className="text-[#0891b2]" />;
+  }
+  if (cat.includes('playground') || cat.includes('cinema') || cat.includes('game')) {
+    return <FaGamepad className="text-[#9333ea]" />;
+  }
+
   return <FaUtensils className="text-[#AF672D]" />;
 };
 
-const getCategoryColor = (category: string | undefined) => {
-  if (!category) return '#EF4444';
-  const cat = category.toLowerCase();
-  if (cat.includes('health')) {
-    return '#00A300';
-  }
-  if (cat.includes('service')) {
-    return '#0f80e9';
-  }
-  return '#B4000F';
-};
+// --- ĐÃ XÓA HÀM getCategoryColor CŨ ---
 
+// --- CẬP NHẬT LOGIC LẤY PIN ---
 export const getStorePin = (store: Store, isSelected: boolean) => {
-  const pinColor = getCategoryColor(store.category);
+  // 1. Logic màu sắc mới:
+  // Mặc định là Đỏ (#d83231)
+  let pinColor = '#d83231';
+
+  // Kiểm tra xem có Flash Sale không
+  const hasFlashSale = store.vouchers?.some((v: any) => v.type === 'FLASH_SALE');
+
+  if (hasFlashSale) {
+    // Nếu có Flash Sale -> Màu Vàng
+    pinColor = '#FEC106';
+  } else {
+    // Nếu không có Flash Sale -> Giữ màu Đỏ (đại diện cho Voucher thường)
+    pinColor = '#d83231';
+  }
+
+  // 2. Lấy Icon theo Category (giữ nguyên)
   const iconContent = getCategoryContent(store.category);
+
   return createCustomPin(pinColor, iconContent, isSelected);
 };
 
+// --- GIỮ NGUYÊN USER PIN ---
 export const getUserPin = () => {
   return L.divIcon({
     className: 'custom-pin-icon',
@@ -3099,6 +3235,7 @@ import { Page, Header, Box, Text, Button, Icon, useSnackbar } from 'zmp-ui';
 import { useParams } from 'react-router-dom';
 import api from '@/services/api';
 import { useStore } from '@/hooks/useStore';
+import { FaDirections } from 'react-icons/fa';
 
 const StoreDetailPage: React.FC = () => {
   const { id } = useParams(); // Lấy ID quán từ URL
@@ -3143,6 +3280,14 @@ const StoreDetailPage: React.FC = () => {
     );
 
   if (!store) return <div className="text-center mt-20">Không tìm thấy quán</div>;
+  const openMap = () => {
+    const lat = store.lat;
+    const lng = store.lng;
+
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+    window.location.href = url;
+  };
 
   return (
     <Page className="bg-white pb-20 relative">
@@ -3187,11 +3332,32 @@ const StoreDetailPage: React.FC = () => {
             <div className="font-bold text-lg text-green-600">Đang mở</div>
             <div className="text-xs text-gray-500">07:00 - 22:00</div>
           </div>
+
         </div>
 
-        <Text.Title size="normal" className="font-bold mb-4 uppercase">
-          Voucher ưu đãi ({store.vouchers?.length || 0})
-        </Text.Title>
+        <div className="flex justify-between items-center mb-4">
+
+          <Text.Title size="normal" className="font-bold uppercase">
+            Voucher ưu đãi ({store.vouchers?.length || 0})
+          </Text.Title>
+
+          <div className="">
+            <button
+              onClick={openMap}
+              className="
+                flex items-center gap-2
+                bg-green-600 active:bg-green-700
+                text-white font-bold
+                px-4 py-2 rounded-full
+                shadow-lg
+              "
+            >
+              <FaDirections size={18} />
+              Đường đi
+            </button>
+          </div>
+        </div>
+
 
         <div className="space-y-4">
           {store.vouchers &&
@@ -3497,7 +3663,6 @@ const StoreDealItem = ({ store }: { store: Store }) => {
 };
 
 const StoreDealList = ({ stores }: { stores: Store[] }) => {
-  // Lọc chỉ những quán có voucher
   const storesWithDeals = stores.filter((s) => s.vouchers && s.vouchers.length > 0);
 
   return (
@@ -3730,6 +3895,7 @@ FILE PATH: src\services\store.service.ts
 import api from './api';
 import { ApiResponse } from '@/types/api';
 import { Store, Voucher, FlashSaleItem } from '@/types/store';
+import { CATEGORY_LABELS } from '@/constants/categories';
 
 interface NearbyParams {
   lat: number;
@@ -3738,12 +3904,34 @@ interface NearbyParams {
   category?: string;
 }
 
+const CATEGORY_MAPPING: Record<string, string> = {
+  [CATEGORY_LABELS.SPORT]: 'sport',
+  [CATEGORY_LABELS.PLAYGROUND]: 'playground',
+  [CATEGORY_LABELS.HEALTH]: 'health',
+  [CATEGORY_LABELS.SERVICE]: 'service',
+  [CATEGORY_LABELS.FOOD]: 'food|drink',
+  [CATEGORY_LABELS.DRINK]: 'drink',
+};
+
 export const storeService = {
-  // 1. Lấy danh sách quán
-  getNearby: (params: NearbyParams) =>
-    api.get('/api/store/nearby', {
-      params: { ...params, radius: params.radius || 10 },
-    }) as Promise<ApiResponse<Store[]>>,
+  // 1. Lấy danh sách quán gần đây
+  getNearby: (params: NearbyParams) => {
+    let categoryParam = params.category;
+
+    if (categoryParam === CATEGORY_LABELS.ALL || categoryParam === CATEGORY_LABELS.FLASH_SALE) {
+      categoryParam = 'Tất cả';
+    } else if (categoryParam && CATEGORY_MAPPING[categoryParam]) {
+      categoryParam = CATEGORY_MAPPING[categoryParam];
+    }
+
+    return api.get('/api/store/nearby', {
+      params: {
+        ...params,
+        category: categoryParam,
+        radius: params.radius || 10,
+      },
+    }) as Promise<ApiResponse<Store[]>>;
+  },
 
   // 2. Tìm kiếm quán
   search: (keyword: string) =>
@@ -3780,11 +3968,16 @@ export const storeService = {
     ) as Promise<ApiResponse<null>>,
 
   // 7. Lấy Flash Sale
-  getFlashSales: (accessToken: string, category?: string) =>
-    api.get('/api/store/flash-sale', {
+  getFlashSales: (accessToken: string, category?: string) => {
+    const categoryParam =
+      category === CATEGORY_LABELS.ALL || category === CATEGORY_LABELS.FLASH_SALE
+        ? 'Tất cả'
+        : category;
+    return api.get('/api/store/flash-sale', {
       headers: { Authorization: `Bearer ${accessToken}` },
-      params: { category },
-    }) as Promise<ApiResponse<FlashSaleItem[]>>,
+      params: { category: categoryParam },
+    }) as Promise<ApiResponse<FlashSaleItem[]>>;
+  },
 
   // 8. Lấy chi tiết quán
   getDetail: (id: string | number) =>
@@ -4009,7 +4202,7 @@ FILE PATH: tsconfig.json
 ================================================
 FILE PATH: www\app-config.json
 ================================================
-{"app":{"title":"zaui-LoctionVoucher","textColor":{"light":"black","dark":"white"},"statusBar":"transparent","actionBarHidden":true,"hideIOSSafeAreaBottom":false,"hideAndroidBottomNavigationBar":false},"listCSS":["assets/index-Ch9Zyya-.css"],"listSyncJS":["assets/index.D6u_Cp7Y.module.js"],"listAsyncJS":[],"pages":[]}
+{"app":{"title":"zaui-LoctionVoucher","textColor":{"light":"black","dark":"white"},"statusBar":"transparent","actionBarHidden":true,"hideIOSSafeAreaBottom":false,"hideAndroidBottomNavigationBar":false},"listCSS":["assets/index-h4xzjZcg.css"],"listSyncJS":["assets/index.dclBNSZk.module.js"],"listAsyncJS":[],"pages":[]}
 
 ================================================
 FILE PATH: zmp-cli.json
