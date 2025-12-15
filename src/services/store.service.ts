@@ -1,6 +1,7 @@
 import api from './api';
 import { ApiResponse } from '@/types/api';
 import { Store, Voucher, FlashSaleItem } from '@/types/store';
+import { CATEGORY_LABELS } from '@/constants/categories';
 
 interface NearbyParams {
   lat: number;
@@ -9,12 +10,25 @@ interface NearbyParams {
   category?: string;
 }
 
+const CATEGORY_MAPPING: Record<string, string> = {
+  [CATEGORY_LABELS.SPORT]: 'sport',
+  [CATEGORY_LABELS.PLAYGROUND]: 'playground',
+  [CATEGORY_LABELS.HEALTH]: 'health',
+  [CATEGORY_LABELS.SERVICE]: 'service',
+  [CATEGORY_LABELS.FOOD]: 'food|drink',
+  [CATEGORY_LABELS.DRINK]: 'drink',
+};
+
 export const storeService = {
-  // 1. Lấy danh sách quán
+  // 1. Lấy danh sách quán gần đây
   getNearby: (params: NearbyParams) => {
-    // --- LOGIC MAP TỪ KHÓA MỚI ---
-    // Nếu category là 'Voucher' (do mình đổi tên ở trên), thì đổi thành 'Tất cả' để Backend hiểu
-    const categoryParam = params.category === 'Voucher' ? 'Tất cả' : params.category;
+    let categoryParam = params.category;
+
+    if (categoryParam === CATEGORY_LABELS.ALL || categoryParam === CATEGORY_LABELS.FLASH_SALE) {
+      categoryParam = 'Tất cả';
+    } else if (categoryParam && CATEGORY_MAPPING[categoryParam]) {
+      categoryParam = CATEGORY_MAPPING[categoryParam];
+    }
 
     return api.get('/api/store/nearby', {
       params: {
@@ -61,8 +75,10 @@ export const storeService = {
 
   // 7. Lấy Flash Sale
   getFlashSales: (accessToken: string, category?: string) => {
-    // Cũng map tương tự cho Flash Sale nếu cần lọc theo tab
-    const categoryParam = category === 'Voucher' ? 'Tất cả' : category;
+    const categoryParam =
+      category === CATEGORY_LABELS.ALL || category === CATEGORY_LABELS.FLASH_SALE
+        ? 'Tất cả'
+        : category;
     return api.get('/api/store/flash-sale', {
       headers: { Authorization: `Bearer ${accessToken}` },
       params: { category: categoryParam },
