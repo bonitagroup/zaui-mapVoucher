@@ -3,6 +3,7 @@ import { Page, Header, Box, Text, Button, Icon, useSnackbar } from 'zmp-ui';
 import { useParams } from 'react-router-dom';
 import api from '@/services/api';
 import { useStore } from '@/hooks/useStore';
+import { FaDirections } from 'react-icons/fa';
 
 const StoreDetailPage: React.FC = () => {
   const { id } = useParams(); // Lấy ID quán từ URL
@@ -47,6 +48,14 @@ const StoreDetailPage: React.FC = () => {
     );
 
   if (!store) return <div className="text-center mt-20">Không tìm thấy quán</div>;
+  const openMap = () => {
+    const lat = store.lat;
+    const lng = store.lng;
+
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+    window.location.href = url;
+  };
 
   return (
     <Page className="bg-white pb-20 relative">
@@ -91,11 +100,32 @@ const StoreDetailPage: React.FC = () => {
             <div className="font-bold text-lg text-green-600">Đang mở</div>
             <div className="text-xs text-gray-500">07:00 - 22:00</div>
           </div>
+
         </div>
 
-        <Text.Title size="normal" className="font-bold mb-4 uppercase">
-          Voucher ưu đãi ({store.vouchers?.length || 0})
-        </Text.Title>
+        <div className="flex justify-between items-center mb-4">
+
+          <Text.Title size="normal" className="font-bold uppercase">
+            Voucher ưu đãi ({store.vouchers?.length || 0})
+          </Text.Title>
+
+          <div className="">
+            <button
+              onClick={openMap}
+              className="
+                flex items-center gap-2
+                bg-green-600 active:bg-green-700
+                text-white font-bold
+                px-4 py-2 rounded-full
+                shadow-lg
+              "
+            >
+              <FaDirections size={18} />
+              Đường đi
+            </button>
+          </div>
+        </div>
+
 
         <div className="space-y-4">
           {store.vouchers &&
