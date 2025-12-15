@@ -288,6 +288,7 @@ const ProfilePage: React.FC = () => {
               label="Địa chỉ đã lưu"
               onClick={() => handleProtectedAction(() => console.log('Chức năng địa chỉ cũ'))}
             />
+            <SettingItem icon={<Icon icon="zi-poll-solid" />} label="Đăng ký cửa hàng" />
 
             <SettingItem icon={<Icon icon="zi-notif-ring" />} label="Thông báo" />
             <SettingItem icon={<Icon icon="zi-lock" />} label="Quyền riêng tư" />

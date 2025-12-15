@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { Box, Text, Button } from 'zmp-ui';
 import { Store } from '@/types/store';
-import { FaStar } from 'react-icons/fa';
+import { FaDirections, FaStar } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import { openMap } from '@/utils/map';
 
 interface StoreListItemProps {
   store: Store;
@@ -32,9 +33,21 @@ const StoreListItem: React.FC<StoreListItemProps> = ({ store }) => {
             <Text.Title size="small" className="font-bold text-gray-800 line-clamp-1 flex-1 pr-2">
               {store.name}
             </Text.Title>
-            <Text size="xxSmall" className="text-red-500 font-bold whitespace-nowrap">
-              {store.distance ? `${store.distance.toFixed(1)} km` : ''}
-            </Text>
+            <div className="flex items-center gap-2">
+              <Text size="xxSmall" className="text-red-500 font-bold whitespace-nowrap">
+                {store.distance ? `${store.distance.toFixed(1)} km` : ''}
+              </Text>
+              
+              <button
+                onClick={() => {openMap(store.lat, store.lng)}}
+                className="
+                  flex items-center gap-1 text-blue-600
+                "
+              >
+                <FaDirections size={18} />
+                Đường đi
+              </button>
+            </div>
           </div>
 
           <Text size="xxSmall" className="text-gray-500 mb-1">

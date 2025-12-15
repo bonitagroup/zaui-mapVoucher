@@ -11,7 +11,7 @@ import MyVoucherPage from '@/pages/profile/my-voucher/index';
 
 const Layout = () => {
   const location = useLocation();
-  const isWelcomePage = location.pathname === '/' || location.pathname === '/welcome';
+  const isShowBotton = location.pathname === '/' || location.pathname === '/welcome';
 
   return (
     <Box className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -28,7 +28,7 @@ const Layout = () => {
         </Routes>
       </Box>
 
-      {!isWelcomePage && <CustomBottomNavigation />}
+      {!isShowBotton && <CustomBottomNavigation />}
     </Box>
   );
 };
