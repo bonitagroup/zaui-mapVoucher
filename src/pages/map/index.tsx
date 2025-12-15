@@ -52,9 +52,47 @@ const MapViewComponent: React.FC = () => {
     requestLocationForce();
   }, []);
 
+  const handleTagClick = (tag: string) => {
+    if (selectedCategory === tag) {
+      setSelectedCategory(CATEGORY_LABELS.ALL);
+    } else {
+      setSelectedCategory(tag);
+    }
+  };
+
   const filteredStores = useMemo(() => {
     if (!stores) return [];
+
     let result = stores;
+
+    if (selectedCategory === CATEGORY_LABELS.FLASH_SALE) {
+      result = result.filter(
+        (store) => store.vouchers && store.vouchers.some((v: any) => v.type === 'FLASH_SALE')
+      );
+    } else if (selectedCategory === CATEGORY_LABELS.VOUCHERHOT) {
+      result = result.filter((store) => store.vouchers && store.vouchers.length > 0);
+    } else if (selectedCategory === CATEGORY_LABELS.FOOD) {
+      result = result.filter((store) => {
+        const cat = (store.category || '').toLowerCase();
+        return cat.includes('food') || cat.includes('drink');
+      });
+    } else if (selectedCategory !== CATEGORY_LABELS.ALL) {
+      const targetCat = selectedCategory.toLowerCase();
+      result = result.filter((store) => {
+        const storeCat = (store.category || '').toLowerCase();
+        if (targetCat === 'thể thao' && storeCat.includes('sport')) return true;
+        if (
+          targetCat === 'giải trí' &&
+          (storeCat.includes('playground') || storeCat.includes('game'))
+        )
+          return true;
+        if (targetCat === 'dịch vụ' && storeCat.includes('service')) return true;
+        if (targetCat === 'sức khỏe' && storeCat.includes('health')) return true;
+
+        return storeCat.includes(targetCat);
+      });
+    }
+
     if (keyword.trim()) {
       const lowerKeyword = keyword.toLowerCase();
       result = result.filter(
@@ -64,8 +102,9 @@ const MapViewComponent: React.FC = () => {
           (s.vouchers && s.vouchers.some((v: any) => v.title.toLowerCase().includes(lowerKeyword)))
       );
     }
+
     return result;
-  }, [stores, keyword]);
+  }, [stores, keyword, selectedCategory]);
 
   const handleLocateMe = () => {
     requestLocationForce();
@@ -75,7 +114,12 @@ const MapViewComponent: React.FC = () => {
 
   return (
     <Box className="w-full h-full relative bg-gray-100 flex flex-col">
-      <MapSearchBar keyword={keyword} setKeyword={setKeyword} />
+      <MapSearchBar
+        keyword={keyword}
+        setKeyword={setKeyword}
+        selectedCategory={selectedCategory}
+        onTagClick={handleTagClick}
+      />
 
       <Box className="absolute inset-0 z-0">
         {isDenied && (

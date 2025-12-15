@@ -69,7 +69,6 @@ const HomePage: React.FC = () => {
         lat: position[0],
         lng: position[1],
         category: selectedCategory,
-        forceRefresh: true,
       });
       fetchFlashSales(selectedCategory);
     }
