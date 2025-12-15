@@ -1,12 +1,13 @@
 import React from 'react';
 import L from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { FaUtensils } from 'react-icons/fa';
+import { FaUtensils, FaRunning, FaGamepad } from 'react-icons/fa';
 import { GiHealthNormal } from 'react-icons/gi';
 import { MdRoomService } from 'react-icons/md';
 import { RiDrinks2Fill } from 'react-icons/ri';
 import { Store } from '@/types/store';
 
+// --- GIỮ NGUYÊN HÀM TẠO PIN ---
 export const createCustomPin = (
   color: string,
   content: React.ReactNode | string,
@@ -70,40 +71,56 @@ export const createCustomPin = (
   });
 };
 
+// --- GIỮ NGUYÊN LOGIC ICON ---
 export const getCategoryContent = (category: string | undefined) => {
   if (!category) return <FaUtensils className="text-slate-600" />;
   const cat = category.toLowerCase();
 
-  if (cat.includes('drink')) {
+  if (cat.includes('drink') || cat.includes('cafe') || cat.includes('tea')) {
     return <RiDrinks2Fill className="text-[#597718]" />;
   }
-  if (cat.includes('health')) {
+  if (cat.includes('health') || cat.includes('spa') || cat.includes('gym')) {
     return <GiHealthNormal className="text-[#EF4444]" />;
   }
-  if (cat.includes('service')) {
+  if (cat.includes('service') || cat.includes('hotel')) {
     return <MdRoomService className="text-[#e68d27]" />;
   }
+  if (cat.includes('sport') || cat.includes('soccer') || cat.includes('pool')) {
+    return <FaRunning className="text-[#0891b2]" />;
+  }
+  if (cat.includes('playground') || cat.includes('cinema') || cat.includes('game')) {
+    return <FaGamepad className="text-[#9333ea]" />;
+  }
+
   return <FaUtensils className="text-[#AF672D]" />;
 };
 
-const getCategoryColor = (category: string | undefined) => {
-  if (!category) return '#EF4444';
-  const cat = category.toLowerCase();
-  if (cat.includes('health')) {
-    return '#00A300';
-  }
-  if (cat.includes('service')) {
-    return '#0f80e9';
-  }
-  return '#B4000F';
-};
+// --- ĐÃ XÓA HÀM getCategoryColor CŨ ---
 
+// --- CẬP NHẬT LOGIC LẤY PIN ---
 export const getStorePin = (store: Store, isSelected: boolean) => {
-  const pinColor = getCategoryColor(store.category);
+  // 1. Logic màu sắc mới:
+  // Mặc định là Đỏ (#d83231)
+  let pinColor = '#d83231';
+
+  // Kiểm tra xem có Flash Sale không
+  const hasFlashSale = store.vouchers?.some((v: any) => v.type === 'FLASH_SALE');
+
+  if (hasFlashSale) {
+    // Nếu có Flash Sale -> Màu Vàng
+    pinColor = '#FEC106';
+  } else {
+    // Nếu không có Flash Sale -> Giữ màu Đỏ (đại diện cho Voucher thường)
+    pinColor = '#d83231';
+  }
+
+  // 2. Lấy Icon theo Category (giữ nguyên)
   const iconContent = getCategoryContent(store.category);
+
   return createCustomPin(pinColor, iconContent, isSelected);
 };
 
+// --- GIỮ NGUYÊN USER PIN ---
 export const getUserPin = () => {
   return L.divIcon({
     className: 'custom-pin-icon',

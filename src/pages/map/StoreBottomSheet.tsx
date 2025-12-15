@@ -1,104 +1,106 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, Icon } from 'zmp-ui';
+import React, { useState, useRef, useEffect } from 'react';
+import { Box, Text, Icon } from 'zmp-ui';
 import { Store } from '@/types/store';
-import StoreCard from '@/components/map/StoreCard';
+import StoreListItem from '@/components/map/StoreListItem';
 
 interface StoreBottomSheetProps {
-  isSheetCollapsed: boolean;
-  setIsSheetCollapsed: (val: boolean) => void;
-  selectedStore: Store | null;
-  setSelectedStore: (store: Store | null) => void;
-  keyword: string;
   filteredStores: Store[];
-  setTargetZoom: (zoom: number) => void;
+  selectedStore: Store | null;
+  isSheetCollapsed?: boolean;
+  setIsSheetCollapsed?: (val: boolean) => void;
+  setSelectedStore?: (store: Store | null) => void;
+  keyword?: string;
+  setTargetZoom?: (zoom: number) => void;
 }
 
-const StoreBottomSheet: React.FC<StoreBottomSheetProps> = ({
-  selectedStore,
-  setSelectedStore,
-  filteredStores,
-  setTargetZoom,
-}) => {
-  const [isVisible, setIsVisible] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
+const StoreBottomSheet: React.FC<StoreBottomSheetProps> = ({ filteredStores, selectedStore }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const startY = useRef<number>(0);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (selectedStore) {
-      setIsVisible(true);
-      setTimeout(() => {
-        const cardId = `store-card-${selectedStore.id}`;
-        const element = document.getElementById(cardId);
-        if (element) {
-          element.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'center',
-          });
-        }
-      }, 300);
+      const element = document.getElementById(`store-item-${selectedStore.id}`);
+
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        element.classList.add('ring-2', 'ring-red-500');
+        setTimeout(() => {
+          element.classList.remove('ring-2', 'ring-red-500');
+        }, 15000);
+      }
     }
   }, [selectedStore]);
 
-  const handleSelectStore = useCallback(
-    (store: Store) => {
-      setTargetZoom(18);
-      setSelectedStore(store);
-    },
-    [setTargetZoom, setSelectedStore]
-  );
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const endY = e.changedTouches[0].clientY;
+    const diff = startY.current - endY;
+    if (diff > 50) setIsExpanded(true);
+    else if (diff < -50) setIsExpanded(false);
+  };
+
+  const hotStores = filteredStores.slice(0, 3);
+  const otherStores = filteredStores.slice(3);
 
   return (
-    <>
+    <div
+      ref={sheetRef}
+      className={`fixed left-0 right-0 bottom-0 bg-white rounded-t-[24px] shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-[1000] transition-all duration-500 ease-in-out flex flex-col ${
+        isExpanded ? 'h-[85vh]' : 'h-[35vh]'
+      }`}
+    >
       <div
-        className={`fixed left-4 z-[999] transition-all duration-300 ${
-          isVisible ? 'bottom-[370px]' : 'bottom-[60px]'
-        }`}
+        className="w-full pt-3 pb-1 flex justify-center cursor-pointer flex-shrink-0"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onClick={() => setIsExpanded(!isExpanded)}
       >
-        <button
-          onClick={() => setIsVisible(!isVisible)}
-          className={`
-            flex items-center gap-2 px-4 py-2 rounded-full shadow-lg font-bold text-sm transition-all border border-gray-100
-            ${
-              isVisible
-                ? 'bg-white text-gray-700 hover:bg-gray-50'
-                : 'bg-[#ea4c62] text-white hover:bg-[#d43f54]'
-            }
-          `}
-        >
-          <Icon icon={isVisible ? 'zi-chevron-down' : 'zi-chevron-up'} size={18} />
-          <span>{isVisible ? 'Ẩn' : 'Hiện'}</span>
-        </button>
+        <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
       </div>
 
-      <Box
-        className={`
-          fixed bottom-0 left-0 right-0 z-[1000] pb-safe
-          transition-transform duration-300 ease-in-out
-          ${isVisible ? 'translate-y-0' : 'translate-y-[120%]'}
-        `}
-      >
+      <div className="px-4 pb-2 flex justify-between items-center flex-shrink-0 border-b border-transparent">
+        <Text.Title size="normal" className="font-extrabold text-gray-800 uppercase">
+          {filteredStores.length} Địa điểm gần bạn
+        </Text.Title>
         <div
-          ref={scrollRef}
-          className="flex overflow-x-auto gap-3 px-4 pb-6 pt-2 snap-x scrollbar-hide"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-1 text-gray-500 text-sm active:opacity-60"
         >
-          {filteredStores.length === 0 ? (
-            <div className="w-full bg-white rounded-xl p-4 pb-16 text-center shadow-lg mx-auto border border-gray-100">
-              <span className="text-gray-500 text-sm">Không tìm thấy quán nào ở khu vực này</span>
-            </div>
-          ) : (
-            filteredStores.map((store) => (
-              <StoreCard
-                key={store.id}
-                store={store}
-                isSelected={selectedStore?.id === store.id}
-                onSelect={handleSelectStore}
-              />
-            ))
-          )}
-          <div className="w-2 shrink-0">&nbsp;</div>
+          {isExpanded ? 'Thu gọn' : 'Xem thêm'}
+          <Icon icon={isExpanded ? 'zi-chevron-down' : 'zi-chevron-up'} />
         </div>
-      </Box>
-    </>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-safe pt-2 bg-gray-50 scroll-smooth">
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-3">
+            <Text className="font-bold text-gray-700 uppercase text-sm">VOUCHER HOT</Text>
+          </div>
+          <div className="flex flex-col gap-3">
+            {hotStores.map((store) => (
+              <StoreListItem key={store.id} store={store} />
+            ))}
+          </div>
+        </div>
+        {otherStores.length > 0 && (
+          <div className="mb-20">
+            <div className="flex justify-between items-center mb-3">
+              <Text className="font-bold text-gray-700 uppercase text-sm">CÓ THỂ BẠN QUAN TÂM</Text>
+            </div>
+            <div className="flex flex-col gap-3">
+              {otherStores.map((store) => (
+                <StoreListItem key={store.id} store={store} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 

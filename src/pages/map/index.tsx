@@ -42,7 +42,7 @@ const MapViewComponent: React.FC = () => {
     if (!position[0] || !position[1]) return;
     const timer = setTimeout(() => {
       if (fetchNearby) {
-        fetchNearby({ category: selectedCategory });
+        fetchNearby({ category: selectedCategory, forceRefresh: true });
       }
     }, 1000);
     return () => clearTimeout(timer);
@@ -113,6 +113,7 @@ const MapViewComponent: React.FC = () => {
           zoom={18}
           style={{ height: '100%', width: '100%' }}
           zoomControl={false}
+          className="pb-[35vh]"
         >
           <MapClickHandler onClick={() => setShowFilterMenu(false)} />
 
@@ -146,7 +147,6 @@ const MapViewComponent: React.FC = () => {
                     click: () => {
                       setTargetZoom(18);
                       setSelectedStore(store);
-                      setIsSheetCollapsed(false);
                       setShowFilterMenu(false);
                     },
                   }}
@@ -156,7 +156,7 @@ const MapViewComponent: React.FC = () => {
           </MarkerClusterGroup>
         </MapContainer>
 
-        <Box className="absolute right-4 bottom-1/2 z-[999] flex flex-col items-end gap-3 pointer-events-none translate-y-12">
+        <Box className="absolute right-4 top-[120px] z-[999] flex flex-col items-end gap-3 pointer-events-none translate-y-12">
           <button
             onClick={handleLocateMe}
             className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-red-500 active:scale-90 transition-transform pointer-events-auto"
@@ -180,11 +180,11 @@ const MapViewComponent: React.FC = () => {
       <StoreBottomSheet
         isSheetCollapsed={isSheetCollapsed}
         setIsSheetCollapsed={setIsSheetCollapsed}
+        keyword={keyword}
+        setTargetZoom={setTargetZoom}
         selectedStore={selectedStore}
         setSelectedStore={setSelectedStore}
-        keyword={keyword}
         filteredStores={filteredStores}
-        setTargetZoom={setTargetZoom}
       />
     </Box>
   );

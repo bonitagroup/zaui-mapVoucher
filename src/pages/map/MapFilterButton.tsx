@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { FaFilter, FaTimes } from 'react-icons/fa';
-import { MAP_CATEGORY_CONFIG, CATEGORY_LABELS } from '@/constants/categories'; // Import mới
+import { MAP_CATEGORY_CONFIG, CATEGORY_LABELS } from '@/constants/categories';
 
 interface MapFilterButtonProps {
   selectedCategory: string;

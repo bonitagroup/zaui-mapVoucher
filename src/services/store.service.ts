@@ -11,10 +11,19 @@ interface NearbyParams {
 
 export const storeService = {
   // 1. Lấy danh sách quán
-  getNearby: (params: NearbyParams) =>
-    api.get('/api/store/nearby', {
-      params: { ...params, radius: params.radius || 10 },
-    }) as Promise<ApiResponse<Store[]>>,
+  getNearby: (params: NearbyParams) => {
+    // --- LOGIC MAP TỪ KHÓA MỚI ---
+    // Nếu category là 'Voucher' (do mình đổi tên ở trên), thì đổi thành 'Tất cả' để Backend hiểu
+    const categoryParam = params.category === 'Voucher' ? 'Tất cả' : params.category;
+
+    return api.get('/api/store/nearby', {
+      params: {
+        ...params,
+        category: categoryParam,
+        radius: params.radius || 10,
+      },
+    }) as Promise<ApiResponse<Store[]>>;
+  },
 
   // 2. Tìm kiếm quán
   search: (keyword: string) =>
@@ -51,11 +60,14 @@ export const storeService = {
     ) as Promise<ApiResponse<null>>,
 
   // 7. Lấy Flash Sale
-  getFlashSales: (accessToken: string, category?: string) =>
-    api.get('/api/store/flash-sale', {
+  getFlashSales: (accessToken: string, category?: string) => {
+    // Cũng map tương tự cho Flash Sale nếu cần lọc theo tab
+    const categoryParam = category === 'Voucher' ? 'Tất cả' : category;
+    return api.get('/api/store/flash-sale', {
       headers: { Authorization: `Bearer ${accessToken}` },
-      params: { category },
-    }) as Promise<ApiResponse<FlashSaleItem[]>>,
+      params: { category: categoryParam },
+    }) as Promise<ApiResponse<FlashSaleItem[]>>;
+  },
 
   // 8. Lấy chi tiết quán
   getDetail: (id: string | number) =>

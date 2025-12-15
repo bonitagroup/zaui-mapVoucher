@@ -89,7 +89,6 @@ const StoreDealItem = ({ store }: { store: Store }) => {
 };
 
 const StoreDealList = ({ stores }: { stores: Store[] }) => {
-  // Lọc chỉ những quán có voucher
   const storesWithDeals = stores.filter((s) => s.vouchers && s.vouchers.length > 0);
 
   return (

@@ -1334,11 +1334,11 @@ const FlashSaleItem = React.memo(
         </div>
 
         <div className="flex flex-col items-end justify-between p-3 pl-0 gap-2 min-w-[75px]">
-          <div className="bg-[#D83231] text-white text-[10px] font-bold px-3 py-1 rounded">
+          <div className="bg-[#D83231] text-white text-[10px] w-[95px] text-center font-bold px-1 py-1 rounded">
             {item.code || 'CODE'}
           </div>
 
-          <div className="border border-[#D83231] text-[#D83231] bg-white text-[12px] font-bold px-4 py-0.5 rounded">
+          <div className="border border-[#D83231] text-[#D83231] bg-white text-[12px] font-bold text-center w-[95px] px-4 py-0.5 rounded">
             SL: {item.quantity}
           </div>
 
@@ -1952,7 +1952,6 @@ const MapViewComponent: React.FC = () => {
             </Text>
 
             <Button
-              // SỬA TẠI ĐÂY: Gọi lại hàm xin quyền thay vì mở cài đặt
               onClick={() => requestLocationForce()}
               className="bg-[#D83231] font-bold rounded-full shadow-lg shadow-red-200"
             >
