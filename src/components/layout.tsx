@@ -8,10 +8,12 @@ import WelcomePage from '@/pages/welcome';
 import CustomBottomNavigation from './navigation';
 import StoreDetailPage from '@/pages/store';
 import MyVoucherPage from '@/pages/profile/my-voucher/index';
+import RegisterStore from '@/pages/store/register';
+import ManagementStore from '@/pages/store/management';
 
 const Layout = () => {
   const location = useLocation();
-  const isShowBotton = location.pathname === '/' || location.pathname === '/welcome';
+  const isNotShowBotton = location.pathname === '/' || location.pathname === '/welcome' || location.pathname === '/register';
 
   return (
     <Box className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -25,10 +27,13 @@ const Layout = () => {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/store/:id" element={<StoreDetailPage />} />
           <Route path="/my-voucher" element={<MyVoucherPage />} />
+          <Route path="/register" element={<RegisterStore />} />
+          <Route path="/management" element={<ManagementStore />} />
+
         </Routes>
       </Box>
 
-      {!isShowBotton && <CustomBottomNavigation />}
+      {!isNotShowBotton && <CustomBottomNavigation />}
     </Box>
   );
 };

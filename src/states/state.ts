@@ -46,3 +46,5 @@ export const locationPermissionDeniedState = atom<boolean>({
   key: 'locationPermissionDeniedState',
   default: false,
 });
+
+
