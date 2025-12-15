@@ -5,7 +5,6 @@ import { TOP_BAR_FILTERS } from '@/constants/categories';
 interface MapSearchBarProps {
   keyword: string;
   setKeyword: (val: string) => void;
-  // Thêm prop này để biết cái nào đang active
   selectedCategory: string;
   onTagClick: (tag: string) => void;
 }
@@ -13,17 +12,17 @@ interface MapSearchBarProps {
 const MapSearchBar: React.FC<MapSearchBarProps> = ({
   keyword,
   setKeyword,
-  selectedCategory, // Nhận prop mới
+  selectedCategory,
   onTagClick,
 }) => {
   const suggestions = TOP_BAR_FILTERS;
 
   return (
-    <Box className="absolute top-0 left-0 mt-3 right-0 z-[1000] p-4 flex flex-col gap-3 pointer-events-none">
-      <Box className="bg-white rounded-xl shadow-md pointer-events-auto flex items-center pr-2">
+    <Box className="absolute top-0 left-0 mt-[75px] right-0 z-[1000] p-4 flex flex-col gap-2 pointer-events-none">
+      <Box className="bg-white rounded-full shadow-md pointer-events-auto flex items-center pr-2">
         <Input.Search
-          placeholder="Tìm món lẩu, nướng..."
-          className="border-none h-11 flex-1"
+          placeholder="Tìm kiếm theo yêu cầu..."
+          className="border-none h-9 ml-3 flex-1"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           clearable
@@ -31,7 +30,6 @@ const MapSearchBar: React.FC<MapSearchBarProps> = ({
       </Box>
       <Box className="flex gap-2 pointer-events-auto overflow-x-auto scrollbar-hide">
         {suggestions.map((item) => {
-          // Kiểm tra xem mục này có đang được chọn không
           const isActive = selectedCategory === item.label;
 
           return (
@@ -42,8 +40,8 @@ const MapSearchBar: React.FC<MapSearchBarProps> = ({
                 px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 border active:scale-95 transition-all duration-200
                 ${
                   isActive
-                    ? 'bg-red-50 border-red-500 ring-1 ring-red-500' // Style khi ĐƯỢC CHỌN (Hơi đỏ, viền đỏ)
-                    : 'bg-white border-gray-100' // Style mặc định
+                    ? 'bg-red-50 border-red-500 ring-1 ring-red-500'
+                    : 'bg-white border-gray-100'
                 }
               `}
             >
