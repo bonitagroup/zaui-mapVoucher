@@ -18,7 +18,7 @@ const MapSearchBar: React.FC<MapSearchBarProps> = ({
   const suggestions = TOP_BAR_FILTERS;
 
   return (
-    <Box className="absolute top-0 left-0 mt-[75px] right-0 z-[1000] p-4 flex flex-col gap-2 pointer-events-none">
+    <Box className="absolute top-0 left-0 mt-[80px] right-0 z-[1000] p-4 flex flex-col gap-2 pointer-events-none">
       <Box className="bg-white rounded-full shadow-md pointer-events-auto flex items-center pr-2">
         <Input.Search
           placeholder="Tìm kiếm theo yêu cầu..."
