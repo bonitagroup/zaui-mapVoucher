@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { FaFilter, FaTimes } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
+import { CiFilter } from 'react-icons/ci';
 import { MAP_CATEGORY_CONFIG, CATEGORY_LABELS } from '@/constants/categories';
 
 interface MapFilterButtonProps {
@@ -94,7 +95,7 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
           {selectedCategory !== CATEGORY_LABELS.ALL && activeOption ? (
             <div className="text-white text-xl drop-shadow-md">{activeOption.icon}</div>
           ) : (
-            <FaFilter size={20} className="text-gray-600" />
+            <CiFilter size={15} className="text-gray-600" />
           )}
         </div>
 
@@ -103,7 +104,7 @@ const MapFilterButton: React.FC<MapFilterButtonProps> = ({
             isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 rotate-[-90deg]'
           }`}
         >
-          <FaTimes size={22} className="text-white" />
+          <CiFilter size={22} className="text-white" />
         </div>
       </button>
 

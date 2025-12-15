@@ -15,6 +15,7 @@ import StoreBottomSheet from './StoreBottomSheet';
 import MapFilterButton from './MapFilterButton';
 import { getUserPin } from './utils/mapHelpers';
 import { CATEGORY_LABELS } from '@/constants/categories';
+import { FaLocationArrow } from 'react-icons/fa';
 
 const MapClickHandler = ({ onClick }: { onClick: () => void }) => {
   useMapEvents({
@@ -115,14 +116,12 @@ const MapViewComponent: React.FC = () => {
   return (
     <Page>
       <Box className="fixed top-0 left-0 w-full z-50">
-        <Box className="bg-[#D83231] py-2 shadow-md">
-          <Box className="flex flex-col items-start gap-3">
-            <Text.Title size="normal" className="font-bold text-white">
-              Bản đồ
-            </Text.Title>
-            <Text.Title size="small" className="font-bold text-white">
-              Bản đồ
-            </Text.Title>
+        <Box className="bg-[#D83231] pt-5 pl-2 shadow-md">
+          <Box className="flex flex-col items-start p-2">
+            <Text className="font-bold text-2xl text-white">Bản đồ</Text>
+            <Text className="font-normal text-sm text-white">
+              Voucher ở mọi nơi, tìm kiếm ngay nào !!!
+            </Text>
           </Box>
         </Box>
       </Box>
@@ -216,12 +215,12 @@ const MapViewComponent: React.FC = () => {
           <Box className="absolute right-4 top-[120px] z-[999] flex flex-col items-end gap-3 pointer-events-none translate-y-12">
             <button
               onClick={handleLocateMe}
-              className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center text-red-500 active:scale-90 transition-transform pointer-events-auto"
+              className="w-12 h-12 rounded-full shadow-md flex items-center justify-center text-white bg-[#D83231] active:scale-90 transition-transform pointer-events-auto"
             >
               {locLoading ? (
-                <div className="w-6 h-6 border-2 border-red-500 border-t-transparent animate-spin rounded-full"></div>
+                <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full"></div>
               ) : (
-                <Icon icon="zi-location-solid" />
+                <FaLocationArrow />
               )}
             </button>
 
