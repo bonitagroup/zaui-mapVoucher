@@ -51,9 +51,10 @@ export const storeService = {
     ) as Promise<ApiResponse<null>>,
 
   // 7. Lấy Flash Sale
-  getFlashSales: (accessToken: string) =>
+  getFlashSales: (accessToken: string, category?: string) =>
     api.get('/api/store/flash-sale', {
       headers: { Authorization: `Bearer ${accessToken}` },
+      params: { category },
     }) as Promise<ApiResponse<FlashSaleItem[]>>,
 
   // 8. Lấy chi tiết quán

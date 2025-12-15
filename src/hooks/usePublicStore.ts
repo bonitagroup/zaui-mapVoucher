@@ -60,18 +60,24 @@ export const usePublicStore = () => {
     [setStores]
   );
 
-  const fetchFlashSales = useCallback(async () => {
-    try {
-      const accessToken = await getAccessToken({});
-      const res = await storeService.getFlashSales(accessToken);
+  const fetchFlashSales = useCallback(
+    async (category: string = 'Tất cả') => {
+      try {
+        const accessToken = await getAccessToken({});
+        const res = await storeService.getFlashSales(accessToken, category);
 
-      if (res.data) {
-        setFlashSales(res.data);
+        if (res.data) {
+          setFlashSales(res.data);
+        } else {
+          setFlashSales([]);
+        }
+      } catch (error) {
+        console.error('Lỗi lấy Flash Sale:', error);
+        setFlashSales([]);
       }
-    } catch (error) {
-      console.error('Lỗi lấy Flash Sale:', error);
-    }
-  }, [setFlashSales]);
+    },
+    [setFlashSales]
+  );
 
   return {
     stores,

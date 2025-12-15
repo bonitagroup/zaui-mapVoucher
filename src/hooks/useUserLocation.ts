@@ -1,24 +1,47 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useRecoilState } from 'recoil';
-import { login, getLocation, getAccessToken } from 'zmp-sdk';
+import { getLocation, getAccessToken, login } from 'zmp-sdk';
 import api from '@/services/api';
-import { userLocationState, locationLoadingState } from '@/states/state';
+import {
+  userLocationState,
+  locationLoadingState,
+  locationPermissionDeniedState,
+} from '@/states/state';
+
+const PERMISSION_KEY = 'location_permission_granted';
+
+// === ĐOẠN CODE THÊM MỚI ĐỂ TEST ===
+const IS_DEV_MODE = true;
+const FAKE_POSITION = { lat: 21.587631, lng: 105.840984 };
+// ===================================
 
 export const useUserLocation = () => {
   const [position, setPosition] = useRecoilState(userLocationState);
   const [loading, setLoading] = useRecoilState(locationLoadingState);
+  const [isDenied, setIsDenied] = useRecoilState(locationPermissionDeniedState);
 
-  const refreshLocation = useCallback(async () => {
-    if (loading) return;
+  const performGetLocation = useCallback(async () => {
     setLoading(true);
+    setIsDenied(false);
+
+    // === ĐOẠN CODE THÊM MỚI ĐỂ TEST ===
+    if (IS_DEV_MODE) {
+      console.log('⚠️ Đang chạy chế độ DEV: Dùng tọa độ giả lập!');
+      await new Promise((r) => setTimeout(r, 500));
+
+      setPosition([FAKE_POSITION.lat, FAKE_POSITION.lng]);
+      setLoading(false);
+      return true; // Báo là thành công luôn
+    }
+    // ===================================
 
     try {
       await login({});
 
-      const locationRes: any = await new Promise((resolve) => {
+      const locationRes: any = await new Promise((resolve, reject) => {
         getLocation({
           success: (data) => resolve(data),
-          fail: (err) => resolve(err),
+          fail: (err) => reject(err),
         });
       });
 
@@ -28,15 +51,12 @@ export const useUserLocation = () => {
 
       if (finalLat && finalLng) {
         setPosition([parseFloat(finalLat), parseFloat(finalLng)]);
-        return;
+        return true;
       }
 
-      if (!token) {
-        throw new Error('Vui lòng cấp quyền vị trí để sử dụng.');
-      }
+      if (!token) throw new Error('Cần quyền vị trí');
 
       const accessToken = await getAccessToken({});
-
       const data: any = await api.post('/api/zalo/location', {
         accessToken,
         locationToken: token,
@@ -44,25 +64,46 @@ export const useUserLocation = () => {
 
       if (data && data.lat && data.lng) {
         setPosition([data.lat, data.lng]);
+        return true;
       } else {
-        throw new Error('Không xác định được vị trí từ Server.');
+        throw new Error('Lỗi Server location');
       }
     } catch (err: any) {
-      console.error('Lỗi định vị:', err);
+      console.error('User từ chối hoặc lỗi:', err);
+      setIsDenied(true);
+      return false;
     } finally {
       setLoading(false);
     }
-  }, [loading, setPosition, setLoading]);
+  }, [setLoading, setPosition, setIsDenied]);
 
-  useEffect(() => {
-    if (position[0] === 21.597631 && position[1] === 105.840984) {
-      refreshLocation();
+  const checkLocationSilent = useCallback(async () => {
+    // === ĐOẠN CODE THÊM MỚI ĐỂ TEST ===
+    if (IS_DEV_MODE) {
+      await performGetLocation();
+      return;
     }
-  }, [position, refreshLocation]);
+    // ===================================
+
+    const hasGranted = localStorage.getItem(PERMISSION_KEY);
+    if (hasGranted === 'true') {
+      await performGetLocation();
+    }
+  }, [performGetLocation]);
+
+  const requestLocationForce = useCallback(async () => {
+    const success = await performGetLocation();
+    if (success) {
+      localStorage.setItem(PERMISSION_KEY, 'true');
+      setIsDenied(false);
+    }
+  }, [performGetLocation, setIsDenied]);
 
   return {
     position,
     loading,
-    refreshLocation,
+    isDenied,
+    checkLocationSilent,
+    requestLocationForce,
   };
 };

@@ -4,7 +4,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import { Icon, Box } from 'zmp-ui';
+import { Icon, Box, Button, Text } from 'zmp-ui';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { usePublicStore } from '@/hooks/usePublicStore';
 import { Store } from '@/types/store';
@@ -26,7 +26,7 @@ const MapClickHandler = ({ onClick }: { onClick: () => void }) => {
 };
 
 const MapViewComponent: React.FC = () => {
-  const { position, refreshLocation, loading: locLoading } = useUserLocation();
+  const { position, requestLocationForce, loading: locLoading, isDenied } = useUserLocation();
   const { stores, fetchNearby, selectedStore, setSelectedStore } = usePublicStore();
 
   const [keyword, setKeyword] = useState('');
@@ -48,6 +48,10 @@ const MapViewComponent: React.FC = () => {
     return () => clearTimeout(timer);
   }, [position, fetchNearby, selectedCategory]);
 
+  useEffect(() => {
+    requestLocationForce();
+  }, []);
+
   const filteredStores = useMemo(() => {
     if (!stores) return [];
     let result = stores;
@@ -64,9 +68,8 @@ const MapViewComponent: React.FC = () => {
   }, [stores, keyword]);
 
   const handleLocateMe = () => {
-    refreshLocation();
+    requestLocationForce();
     setLocateTrigger((prev) => prev + 1);
-
     setSelectedStore(null);
   };
 
@@ -75,6 +78,36 @@ const MapViewComponent: React.FC = () => {
       <MapSearchBar keyword={keyword} setKeyword={setKeyword} />
 
       <Box className="absolute inset-0 z-0">
+        {isDenied && (
+          <div className="absolute inset-0 z-[3000] bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-4 border border-red-100 shadow-sm animate-bounce">
+              <Icon icon="zi-poll-solid" className="text-red-500 text-4xl" />
+            </div>
+
+            <Text.Title size="normal" className="font-bold text-gray-800 mb-2">
+              Cho phép định vị?
+            </Text.Title>
+
+            <Text size="small" className="text-gray-500 mb-6 max-w-[280px]">
+              Để tìm quán gần bạn, vui lòng bấm nút bên dưới và chọn <strong>"Cho phép"</strong> khi
+              được hỏi.
+            </Text>
+
+            <Button
+              onClick={() => requestLocationForce()}
+              className="bg-[#D83231] font-bold rounded-full shadow-lg shadow-red-200"
+            >
+              Cấp quyền truy cập
+            </Button>
+
+            <div
+              className="mt-6 text-xs text-gray-400 font-medium cursor-pointer underline"
+              onClick={() => requestLocationForce()}
+            >
+              Thử lại
+            </div>
+          </div>
+        )}
         <MapContainer
           center={position}
           zoom={18}

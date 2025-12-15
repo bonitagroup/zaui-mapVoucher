@@ -1,4 +1,3 @@
-// FILE PATH: src/components/map/StoreCard.tsx
 import React, { useCallback } from 'react';
 import { Box, Icon, Button, Text as ZText } from 'zmp-ui';
 import { Store } from '@/types/store';

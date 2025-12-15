@@ -23,7 +23,7 @@ const TrendingList = ({ stores, loading }: { stores: any[]; loading: boolean }) 
   }, [stores]);
 
   return (
-    <div className="bg-white mb-2 pb-4 pt-2 rounded-b-[24px] shadow-sm border-b border-gray-100">
+    <div className="bg-white mb-2 pb-2 rounded-b-[14px]">
       <Box
         px={4}
         mb={3}
@@ -40,8 +40,7 @@ const TrendingList = ({ stores, loading }: { stores: any[]; loading: boolean }) 
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-1">
               <Text className="font-bold text-gray-800 text-base">
-                Chào{' '}
-                <span className="text-red-500">{user ? user.name.split(' ').pop() : 'bạn'}</span>
+                Chào <span className="text-red-500">{user?.name || 'bạn'}</span>
               </Text>
             </div>
             <Text size="xxSmall" className="text-gray-800 font-semibold">
@@ -54,25 +53,22 @@ const TrendingList = ({ stores, loading }: { stores: any[]; loading: boolean }) 
       <Box px={4} className="flex justify-between items-center mb-3">
         <div>
           <div className="flex items-center gap-1.5">
-            <Text.Title size="large" className="font-extrabold text-gray-800 uppercase italic">
-              HOT GẦN BẠN
+            <Text.Title size="small" className="font-extrabold text-gray-800 uppercase italic">
+              VOUCHER HOT GẦN BẠN
             </Text.Title>
             <FaFire className="text-orange-500 text-lg animate-pulse" />
           </div>
-          <Text size="xxSmall" className="text-gray-400 font-medium">
-            Nhiều ưu đãi nhất
-          </Text>
         </div>
 
         <div
-          className="flex items-center gap-1 text-blue-600 text-xs font-semibold active:opacity-60"
+          className="flex items-center gap-1 text-red-600 text-base font-semibold active:opacity-60"
           onClick={() => navigate('/map')}
         >
-          Xem tất cả <FaChevronRight size={10} />
+          Xem tất cả
         </div>
       </Box>
 
-      <div className="flex overflow-x-auto px-4 gap-3 pb-6 pt-2 scrollbar-hide snap-x">
+      <div className="flex overflow-x-auto px-4 gap-2 pb-2 pt-2 scrollbar-hide snap-mandatory">
         {loading ? (
           skeletons.map((i) => (
             <div

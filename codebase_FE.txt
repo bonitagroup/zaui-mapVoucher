@@ -273,7 +273,6 @@ export default Layout;
 ================================================
 FILE PATH: src\components\map\StoreCard.tsx
 ================================================
-// FILE PATH: src/components/map/StoreCard.tsx
 import React, { useCallback } from 'react';
 import { Box, Icon, Button, Text as ZText } from 'zmp-ui';
 import { Store } from '@/types/store';
@@ -592,7 +591,7 @@ const TrendingCard = React.memo(({ store, onClick }: TrendingCardProps) => {
       className="flex-shrink-0 w-[160px] flex flex-col bg-white rounded-2xl overflow-hidden active:opacity-90 transition-all snap-start border border-red-500 shadow-sm relative"
       onClick={onClick}
     >
-      <div className="h-[140px] w-full relative">
+      <div className="h-[120px] w-full relative">
         <img
           src={store.image || 'https://via.placeholder.com/150'}
           className="w-full h-full object-cover"
@@ -624,7 +623,7 @@ const TrendingCard = React.memo(({ store, onClick }: TrendingCardProps) => {
           )}
 
           {maxDiscount && (
-            <div className="absolute top-[187px] right-2 bg-[#D83231] text-white text-lg font-extrabold px-2 py-3 rounded-xl shadow-md z-10 flex items-center justify-center min-w-[60px]">
+            <div className="absolute bottom-2 right-2 bg-[#D83231] text-white text-base font-semibold px-2 py-3 rounded-xl z-10 flex items-center justify-center min-w-[40px]">
               {maxDiscount}
             </div>
           )}
@@ -909,7 +908,7 @@ export const usePublicStore = () => {
         setLoading(false);
       }
     },
-    [userLocation, stores, setStores]
+    [userLocation, setStores]
   );
 
   const search = useCallback(
@@ -932,18 +931,24 @@ export const usePublicStore = () => {
     [setStores]
   );
 
-  const fetchFlashSales = useCallback(async () => {
-    try {
-      const accessToken = await getAccessToken({});
-      const res = await storeService.getFlashSales(accessToken);
+  const fetchFlashSales = useCallback(
+    async (category: string = 'Tất cả') => {
+      try {
+        const accessToken = await getAccessToken({});
+        const res = await storeService.getFlashSales(accessToken, category);
 
-      if (res.data) {
-        setFlashSales(res.data);
+        if (res.data) {
+          setFlashSales(res.data);
+        } else {
+          setFlashSales([]);
+        }
+      } catch (error) {
+        console.error('Lỗi lấy Flash Sale:', error);
+        setFlashSales([]);
       }
-    } catch (error) {
-      console.error('Lỗi lấy Flash Sale:', error);
-    }
-  }, [setFlashSales]);
+    },
+    [setFlashSales]
+  );
 
   return {
     stores,
@@ -1089,27 +1094,50 @@ export const useUserInit = () => {
 ================================================
 FILE PATH: src\hooks\useUserLocation.ts
 ================================================
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useRecoilState } from 'recoil';
-import { login, getLocation, getAccessToken } from 'zmp-sdk';
+import { getLocation, getAccessToken, login } from 'zmp-sdk';
 import api from '@/services/api';
-import { userLocationState, locationLoadingState } from '@/states/state';
+import {
+  userLocationState,
+  locationLoadingState,
+  locationPermissionDeniedState,
+} from '@/states/state';
+
+const PERMISSION_KEY = 'location_permission_granted';
+
+// === ĐOẠN CODE THÊM MỚI ĐỂ TEST ===
+const IS_DEV_MODE = true;
+const FAKE_POSITION = { lat: 21.587631, lng: 105.840984 };
+// ===================================
 
 export const useUserLocation = () => {
   const [position, setPosition] = useRecoilState(userLocationState);
   const [loading, setLoading] = useRecoilState(locationLoadingState);
+  const [isDenied, setIsDenied] = useRecoilState(locationPermissionDeniedState);
 
-  const refreshLocation = useCallback(async () => {
-    if (loading) return;
+  const performGetLocation = useCallback(async () => {
     setLoading(true);
+    setIsDenied(false);
+
+    // === ĐOẠN CODE THÊM MỚI ĐỂ TEST ===
+    if (IS_DEV_MODE) {
+      console.log('⚠️ Đang chạy chế độ DEV: Dùng tọa độ giả lập!');
+      await new Promise((r) => setTimeout(r, 500));
+
+      setPosition([FAKE_POSITION.lat, FAKE_POSITION.lng]);
+      setLoading(false);
+      return true; // Báo là thành công luôn
+    }
+    // ===================================
 
     try {
       await login({});
 
-      const locationRes: any = await new Promise((resolve) => {
+      const locationRes: any = await new Promise((resolve, reject) => {
         getLocation({
           success: (data) => resolve(data),
-          fail: (err) => resolve(err),
+          fail: (err) => reject(err),
         });
       });
 
@@ -1119,15 +1147,12 @@ export const useUserLocation = () => {
 
       if (finalLat && finalLng) {
         setPosition([parseFloat(finalLat), parseFloat(finalLng)]);
-        return;
+        return true;
       }
 
-      if (!token) {
-        throw new Error('Vui lòng cấp quyền vị trí để sử dụng.');
-      }
+      if (!token) throw new Error('Cần quyền vị trí');
 
       const accessToken = await getAccessToken({});
-
       const data: any = await api.post('/api/zalo/location', {
         accessToken,
         locationToken: token,
@@ -1135,28 +1160,96 @@ export const useUserLocation = () => {
 
       if (data && data.lat && data.lng) {
         setPosition([data.lat, data.lng]);
+        return true;
       } else {
-        throw new Error('Không xác định được vị trí từ Server.');
+        throw new Error('Lỗi Server location');
       }
     } catch (err: any) {
-      console.error('Lỗi định vị:', err);
+      console.error('User từ chối hoặc lỗi:', err);
+      setIsDenied(true);
+      return false;
     } finally {
       setLoading(false);
     }
-  }, [loading, setPosition, setLoading]);
+  }, [setLoading, setPosition, setIsDenied]);
 
-  useEffect(() => {
-    if (position[0] === 21.597631 && position[1] === 105.840984) {
-      refreshLocation();
+  const checkLocationSilent = useCallback(async () => {
+    // === ĐOẠN CODE THÊM MỚI ĐỂ TEST ===
+    if (IS_DEV_MODE) {
+      await performGetLocation();
+      return;
     }
-  }, [position, refreshLocation]);
+    // ===================================
+
+    const hasGranted = localStorage.getItem(PERMISSION_KEY);
+    if (hasGranted === 'true') {
+      await performGetLocation();
+    }
+  }, [performGetLocation]);
+
+  const requestLocationForce = useCallback(async () => {
+    const success = await performGetLocation();
+    if (success) {
+      localStorage.setItem(PERMISSION_KEY, 'true');
+      setIsDenied(false);
+    }
+  }, [performGetLocation, setIsDenied]);
 
   return {
     position,
     loading,
-    refreshLocation,
+    isDenied,
+    checkLocationSilent,
+    requestLocationForce,
   };
 };
+
+
+================================================
+FILE PATH: src\pages\home\CategoryQuickAccess.tsx
+================================================
+import React from 'react';
+import { Box } from 'zmp-ui';
+
+interface CategoryQuickAccessProps {
+  onSelect: (keyword: string) => void;
+  activeCategory: string;
+}
+
+const CategoryQuickAccess: React.FC<CategoryQuickAccessProps> = ({ onSelect, activeCategory }) => {
+  const categories = [
+    { label: 'Ăn uống', value: 'food|drink' },
+    { label: 'Thể thao', value: 'sport' },
+    { label: 'Giải trí', value: 'health|playground' },
+    { label: 'Lưu trú', value: 'service' },
+  ];
+
+  return (
+    <Box className="flex justify-center items-center gap-2 px-2 pt-4 pb-2 overflow-x-auto scrollbar-hide  bg-white/20 relative z-20">
+      {categories.map((cat) => {
+        const isActive = activeCategory === cat.value;
+        return (
+          <div
+            key={cat.value}
+            onClick={() => onSelect(isActive ? 'Tất cả' : cat.value)}
+            className={`
+              flex-shrink-0 px-4 py-2 rounded-full border border-red-500 text-red-500 text-sm font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap select-none
+              ${
+                isActive
+                  ? 'bg-[#D83231] text-white border-[#D83231] shadow-red-100'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-red-200 hover:text-red-500'
+              }
+            `}
+          >
+            {cat.label}
+          </div>
+        );
+      })}
+    </Box>
+  );
+};
+
+export default CategoryQuickAccess;
 
 
 ================================================
@@ -1167,7 +1260,8 @@ import { Box, Text, Button, Icon, useSnackbar } from 'zmp-ui';
 import { usePublicStore } from '@/hooks/usePublicStore';
 import { useMyWallet } from '@/hooks/useMyWallet';
 import { useNavigate } from 'react-router-dom';
-import { formatCountdown } from '@/utils/dateFormatter';
+import { formatCountdown, formatDateVN } from '@/utils/dateFormatter';
+import { FaBolt } from 'react-icons/fa';
 
 const FlashSaleItem = React.memo(
   ({ item, onSave }: { item: any; onSave: (id: number) => Promise<boolean> }) => {
@@ -1181,9 +1275,7 @@ const FlashSaleItem = React.memo(
         const end = new Date(item.end_date).getTime();
         const now = new Date().getTime();
         const diff = end - now;
-
-        if (diff <= 0) return 'Đã kết thúc';
-
+        if (diff <= 0) return '00:00:00';
         return formatCountdown(diff);
       };
 
@@ -1198,12 +1290,12 @@ const FlashSaleItem = React.memo(
       setIsSaved(Boolean(item.is_saved));
     }, [item.is_saved]);
 
-    const handleButtonClick = async () => {
+    const handleButtonClick = async (e) => {
+      e.stopPropagation();
       if (isSaved) {
         navigate('/my-voucher');
         return;
       }
-
       setIsLoading(true);
       const success = await onSave(item.id);
       setIsLoading(false);
@@ -1213,61 +1305,79 @@ const FlashSaleItem = React.memo(
     };
 
     return (
-      <div className="flex-shrink-0 w-[280px] bg-[#FFF5F1] p-3 rounded-xl border border-orange-100 shadow-sm flex flex-col gap-2 snap-center">
-        <div className="flex items-center gap-2">
-          <div className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-            <Icon icon="zi-poll" size={12} />
-            <span>Giảm {item.discount}</span>
-            <span className="opacity-60">|</span>
-            <span className="font-mono tracking-wide">{timeLeft}</span>
+      <div
+        className="relative bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.08)] mb-3 overflow-hidden flex border border-l-8 border-b-4 border-red-500"
+        onClick={() => navigate(`/store/${item.store_id}`)}
+      >
+        <div className="flex-1 p-2 pl-2 flex flex-col justify-between">
+          <div className="flex items-start mb-1">
+            <div className="bg-[#D83231] text-white text-xs font-semibold px-1 py-1 rounded-md flex items-center gap-1.5 shadow-sm">
+              <FaBolt className="text-white text-[10px]" />
+              <span>{item.discount}</span>
+              <span className="opacity-60 text-[10px]">•</span>
+              <span className="font-mono tracking-wide">{timeLeft}</span>
+            </div>
+          </div>
+
+          <div>
+            <Text className="font-extrabold text-gray-900 text-[15px] uppercase leading-tight line-clamp-1 mb-1">
+              {item.store_name}
+            </Text>
+            <Text className="font-bold text-gray-800 text-sm leading-tight line-clamp-2">
+              {item.title}
+            </Text>
+          </div>
+
+          <div className="mt-2 text-xs text-gray-500 font-medium">
+            Áp dụng đến {formatDateVN(item.end_date)}
           </div>
         </div>
 
-        <div className="flex justify-between items-center mt-auto">
-          <div className="flex-1 pr-2 min-w-0">
-            <Text className="font-bold text-gray-800 text-sm line-clamp-1">{item.store_name}</Text>
-            <Text size="xxSmall" className="text-gray-500 line-clamp-1">
-              {item.title}
-            </Text>
-            <Text size="xxSmall" className="text-gray-500 mt-1">
-              Còn lại: <span className="text-orange-600 font-bold">{item.quantity}</span>
-            </Text>
+        <div className="flex flex-col items-end justify-between p-3 pl-0 gap-2 min-w-[75px]">
+          <div className="bg-[#D83231] text-white text-[10px] font-bold px-3 py-1 rounded">
+            {item.code || 'CODE'}
           </div>
 
-          <Button
-            size="small"
-            loading={isLoading}
-            className={`h-8 font-bold rounded-lg text-xs min-w-[80px] shadow-sm active:scale-95 transition-transform ${
-              isSaved
-                ? 'bg-green-600 text-white shadow-green-100'
-                : 'bg-[#D83231] text-white shadow-red-100'
-            }`}
+          <div className="border border-[#D83231] text-[#D83231] bg-white text-[12px] font-bold px-4 py-0.5 rounded">
+            SL: {item.quantity}
+          </div>
+
+          <button
             onClick={handleButtonClick}
+            disabled={isLoading}
+            className={`flex flex-col items-center justify-center w-full py-1 px-1 rounded-md transition-all active:scale-95 ${
+              isSaved
+                ? 'bg-gray-200 text-gray-500'
+                : 'bg-[#D83231] text-white shadow-md shadow-red-100'
+            }`}
           >
-            {isSaved ? 'Dùng ngay' : 'Lấy voucher'}
-          </Button>
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full mb-1"></div>
+            ) : (
+              <Box className="flex flex-wrap items-center">
+                <Icon icon={isSaved ? 'zi-check' : 'zi-bookmark'} size={16} />
+                <span className="text-[11px] font-medium leading-none mt-0.5">
+                  {isSaved ? 'ĐÃ LƯU' : 'LƯU'}
+                </span>
+              </Box>
+            )}
+            <span className="text-[12px] font-medium leading-none mt-0.5">VOUCHER</span>
+          </button>
         </div>
       </div>
     );
   },
-  (prevProps, nextProps) => {
-    return (
-      prevProps.item.id === nextProps.item.id &&
-      prevProps.item.is_saved === nextProps.item.is_saved &&
-      prevProps.item.quantity === nextProps.item.quantity
-    );
-  }
+  (prev, next) =>
+    prev.item.id === next.item.id &&
+    prev.item.is_saved === next.item.is_saved &&
+    prev.item.quantity === next.item.quantity
 );
 
 const FlashSaleList = () => {
-  const { flashSales, fetchFlashSales } = usePublicStore();
+  const { flashSales } = usePublicStore();
   const { saveVoucher } = useMyWallet();
   const navigate = useNavigate();
   const { openSnackbar } = useSnackbar();
-
-  useEffect(() => {
-    fetchFlashSales();
-  }, [fetchFlashSales]);
 
   const handleSaveVoucher = async (id: number): Promise<boolean> => {
     const result: any = await saveVoucher(id);
@@ -1281,7 +1391,7 @@ const FlashSaleList = () => {
       return true;
     } else {
       openSnackbar({
-        text: '❌ ' + (result.message || 'Lỗi khi lưu voucher'),
+        text: '❌ ' + (result.message || 'Lỗi'),
         type: 'error',
         duration: 3000,
         position: 'top',
@@ -1290,36 +1400,48 @@ const FlashSaleList = () => {
     }
   };
 
-  if (!flashSales || flashSales.length === 0) return null;
+  const hasData = flashSales && flashSales.length > 0;
+
   return (
-    <div className="bg-white mb-2 pb-6 pt-2 border-t border-gray-50">
-      <Box px={4} className="flex justify-between items-end mb-3">
+    <div className="bg-white mb-2 pt-4 pb-4">
+      <Box px={4} className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-1">
-          <Text.Title
-            size="normal"
-            className="font-extrabold text-gray-800 uppercase tracking-tight"
-          >
-            ⚡ FLASH SALE
+          <Text.Title size="normal" className="font-extrabold text-gray-800 uppercase">
+            FLASH SALE
           </Text.Title>
-          <span className="text-orange-500 font-bold text-sm bg-orange-50 px-1.5 rounded-full border border-orange-100">
-            {flashSales.length}
-          </span>
+          <span className="text-[#D83231] font-bold text-lg">({flashSales.length})</span>
         </div>
 
         <Text
-          size="small"
-          className="text-red-500 font-medium cursor-pointer active:opacity-60 hover:underline"
+          size="large"
+          className="text-[#D83231] font-bold cursor-pointer active:opacity-60 hover:underline"
           onClick={() => navigate('/voucher')}
         >
           Xem tất cả
         </Text>
       </Box>
 
-      <div className="flex overflow-x-auto px-4 gap-3 pb-2 scrollbar-hide snap-x">
-        {flashSales.slice(0, 6).map((item) => (
-          <FlashSaleItem key={item.id} item={item} onSave={handleSaveVoucher} />
-        ))}
-      </div>
+      {hasData ? (
+        <div className="px-4 flex flex-col gap-1">
+          {flashSales.slice(0, 5).map((item) => (
+            <FlashSaleItem key={item.id} item={item} onSave={handleSaveVoucher} />
+          ))}
+        </div>
+      ) : (
+        <div className="px-4">
+          <div className="flex flex-col items-center justify-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+              <Icon icon="zi-clock-2" className="text-gray-400" size={24} />
+            </div>
+            <Text className="text-gray-500 font-bold text-sm mb-1">
+              Chưa có Flash Sale nào diễn ra
+            </Text>
+            <Text size="xxSmall" className="text-gray-400">
+              Vui lòng quay lại vào khung giờ vàng nhé!
+            </Text>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1330,6 +1452,7 @@ export default FlashSaleList;
 ================================================
 FILE PATH: src\pages\home\index.tsx
 ================================================
+// FILE: src/pages/home/index.tsx
 import React, { useEffect, useState } from 'react';
 import { Page, Input, Box, Text, Icon } from 'zmp-ui';
 import { usePublicStore } from '@/hooks/usePublicStore';
@@ -1338,13 +1461,18 @@ import WelcomeHeader from './WelcomeHeader';
 import TrendingList from './TrendingList';
 import FlashSaleList from './FlashSaleList';
 import { Store } from '@/types/store';
+import { useUserLocation } from '@/hooks/useUserLocation';
+import NewsSection from './NewsSection';
+import CategoryQuickAccess from './CategoryQuickAccess';
 
 const HomePage: React.FC = () => {
-  const { search, stores, loading, fetchNearby } = usePublicStore();
+  const { search, stores, loading, fetchNearby, fetchFlashSales } = usePublicStore();
   const navigate = useNavigate();
 
+  const { position, checkLocationSilent } = useUserLocation();
   const [keyword, setKeyword] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
 
   const safeStores = Array.isArray(stores) ? stores : [];
 
@@ -1355,40 +1483,84 @@ const HomePage: React.FC = () => {
   const exitSearchMode = () => {
     setIsSearchFocused(false);
     setKeyword('');
-    fetchNearby();
+    if (position && position[0]) {
+      fetchNearby({
+        lat: position[0],
+        lng: position[1],
+        category: selectedCategory,
+        forceRefresh: true,
+      });
+    }
   };
 
   const handleStoreClick = (store: Store) => {
     navigate(`/store/${store.id}`);
   };
 
+  const handleSelectCategory = (catValue: string) => {
+    setSelectedCategory(catValue);
+    if (position && position[0] && position[1]) {
+      // Lọc danh sách Quán
+      fetchNearby({
+        lat: position[0],
+        lng: position[1],
+        category: catValue,
+        forceRefresh: true,
+      });
+
+      // Lọc danh sách Flash Sale
+      fetchFlashSales(catValue);
+    }
+  };
+
   useEffect(() => {
-    fetchNearby({ forceRefresh: true });
-  }, [fetchNearby]);
+    checkLocationSilent();
+  }, []);
+
+  useEffect(() => {
+    if (position && position[0] && position[1]) {
+      fetchNearby({
+        lat: position[0],
+        lng: position[1],
+        category: selectedCategory,
+        forceRefresh: true,
+      });
+      fetchFlashSales(selectedCategory);
+    }
+  }, [position[0], position[1]]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (keyword.trim()) {
         search(keyword);
       } else if (keyword === '') {
-        if (!isSearchFocused) fetchNearby();
+        if (!isSearchFocused && position[0]) {
+          fetchNearby({
+            lat: position[0],
+            lng: position[1],
+            category: selectedCategory,
+            forceRefresh: true,
+          });
+        }
       }
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [keyword, search, fetchNearby, isSearchFocused]);
+  }, [keyword, isSearchFocused]);
 
   return (
     <Page className="bg-gray-100 h-full pb-20 relative">
       <WelcomeHeader />
 
-      <Box p={4} className="-mt-[80px] relative z-10">
+      <CategoryQuickAccess onSelect={handleSelectCategory} activeCategory={selectedCategory} />
+
+      <Box className="pt-2 pb-2 mx-2 relative z-10">
         <div
           onClick={() => setIsSearchFocused(true)}
-          className="bg-white rounded-full h-12 flex items-center px-4 shadow-sm border border-gray-100 active:scale-95 transition-transform"
+          className="bg-white rounded-full h-12 flex items-center px-4 shadow-sm border border-gray-300 active:scale-95 transition-transform"
         >
           <Icon icon="zi-search" className="text-red-600 mr-2" />
-          <Text className="text-gray-400 text-sm flex-1">Tìm kiếm theo yêu cầu?</Text>
+          <Text className="text-gray-400 text-sm flex-1">Tìm kiếm theo yêu cầu...</Text>
         </div>
       </Box>
 
@@ -1400,12 +1572,7 @@ const HomePage: React.FC = () => {
         <FlashSaleList />
       </div>
 
-      <div className="bg-white p-4 pb-2 pt-4 rounded-2xl m-2 shadow-sm border border-gray-100">
-        <Text.Title size="normal" className="font-extrabold text-gray-800 uppercase tracking-tight">
-          Tin tức nổi bật
-        </Text.Title>
-        <div className="text-gray-400 text-sm py-4 text-center">Chưa có tin tức mới</div>
-      </div>
+      <NewsSection />
 
       {isSearchFocused && (
         <div className="fixed inset-0 bg-gray-50 z-[9999] flex flex-col animate-[fadeIn_0.2s_ease-in-out]">
@@ -1468,6 +1635,96 @@ export default HomePage;
 
 
 ================================================
+FILE PATH: src\pages\home\NewsSection.tsx
+================================================
+import React from 'react';
+import { Text, Button } from 'zmp-ui';
+import { FaEye } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+
+const NewsSection = () => {
+  const navigate = useNavigate();
+
+  const newsList = [
+    {
+      id: 1,
+      title: 'Top 10 quán ngon rẻ Thái Nguyên không thể bỏ qua',
+      image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500&q=80',
+      category: 'Ẩm thực',
+      views: '132K',
+    },
+  ];
+
+  return (
+    <div className="bg-white p-4 pt-4 pb-4 rounded-2xl m-2 shadow-sm border border-gray-100">
+      <div className="flex justify-between items-center mb-4">
+        <Text.Title size="normal" className="font-extrabold text-gray-800 uppercase tracking-tight">
+          TIN TỨC NỔI BẬT
+        </Text.Title>
+        <Text
+          size="small"
+          className="text-[#D83231] font-medium cursor-pointer active:opacity-60 hover:underline"
+          onClick={() => navigate('/news')}
+        >
+          Xem tất cả
+        </Text>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {newsList.length > 0 ? (
+          newsList.map((item) => (
+            <div
+              key={item.id}
+              className="border border-red-500 rounded-2xl p-2.5 shadow-sm bg-white"
+              onClick={() => console.log('Xem tin', item.id)}
+            >
+              <div className="h-44 w-full rounded-xl overflow-hidden mb-3 relative bg-gray-100">
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/400x200')}
+                />
+              </div>
+
+              <Text.Title
+                size="normal"
+                className="font-extrabold text-gray-900 leading-tight mb-3 line-clamp-2 px-1"
+              >
+                {item.title}
+              </Text.Title>
+
+              <div className="flex justify-between items-center px-1">
+                <div className="flex items-center gap-4">
+                  <Text className="text-[#D83231] font-bold text-sm">{item.category}</Text>
+
+                  <div className="flex items-center gap-1 text-gray-500 text-sm font-medium">
+                    <FaEye size={14} />
+                    <span>{item.views}</span>
+                  </div>
+                </div>
+
+                <Button
+                  size="small"
+                  className="bg-[#D83231] text-white font-bold h-8 rounded-full px-5 shadow-lg shadow-red-100 border-none"
+                >
+                  Xem ngay
+                </Button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-gray-400 text-sm py-4 text-center">Chưa có tin tức mới</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default NewsSection;
+
+
+================================================
 FILE PATH: src\pages\home\TrendingList.tsx
 ================================================
 import React, { useMemo } from 'react';
@@ -1495,7 +1752,7 @@ const TrendingList = ({ stores, loading }: { stores: any[]; loading: boolean }) 
   }, [stores]);
 
   return (
-    <div className="bg-white mb-2 pb-4 pt-2 rounded-b-[24px] shadow-sm border-b border-gray-100">
+    <div className="bg-white mb-2 pb-2 rounded-b-[14px]">
       <Box
         px={4}
         mb={3}
@@ -1512,8 +1769,7 @@ const TrendingList = ({ stores, loading }: { stores: any[]; loading: boolean }) 
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-1">
               <Text className="font-bold text-gray-800 text-base">
-                Chào{' '}
-                <span className="text-red-500">{user ? user.name.split(' ').pop() : 'bạn'}</span>
+                Chào <span className="text-red-500">{user?.name || 'bạn'}</span>
               </Text>
             </div>
             <Text size="xxSmall" className="text-gray-800 font-semibold">
@@ -1526,25 +1782,22 @@ const TrendingList = ({ stores, loading }: { stores: any[]; loading: boolean }) 
       <Box px={4} className="flex justify-between items-center mb-3">
         <div>
           <div className="flex items-center gap-1.5">
-            <Text.Title size="large" className="font-extrabold text-gray-800 uppercase italic">
-              HOT GẦN BẠN
+            <Text.Title size="small" className="font-extrabold text-gray-800 uppercase italic">
+              VOUCHER HOT GẦN BẠN
             </Text.Title>
             <FaFire className="text-orange-500 text-lg animate-pulse" />
           </div>
-          <Text size="xxSmall" className="text-gray-400 font-medium">
-            Nhiều ưu đãi nhất
-          </Text>
         </div>
 
         <div
-          className="flex items-center gap-1 text-blue-600 text-xs font-semibold active:opacity-60"
+          className="flex items-center gap-1 text-red-600 text-base font-semibold active:opacity-60"
           onClick={() => navigate('/map')}
         >
-          Xem tất cả <FaChevronRight size={10} />
+          Xem tất cả
         </div>
       </Box>
 
-      <div className="flex overflow-x-auto px-4 gap-3 pb-6 pt-2 scrollbar-hide snap-x">
+      <div className="flex overflow-x-auto px-4 gap-2 pb-2 pt-2 scrollbar-hide snap-mandatory">
         {loading ? (
           skeletons.map((i) => (
             <div
@@ -1582,14 +1835,14 @@ import { Box, Text } from 'zmp-ui';
 
 const WelcomeHeader: React.FC = () => {
   return (
-    <div className="bg-[#D83231] p-4 pb-[80px] pt-12 rounded-b-3xl shadow-md text-white">
+    <div className="bg-[#D83231] p-4 pb-[10px] pt-12 shadow-md text-white">
       <div className="flex justify-between items-start">
-        <div className="flex flex-col gap-4">
-          <Text.Title size="normal" className="font-bold text-white mt-1">
+        <div className="flex flex-col gap-2">
+          <Text.Title size="xLarge" className="font-bold text-white mt-1">
             Thái Nguyên Voucher Maps
           </Text.Title>
-          <Text size="small" className="opacity-90 text-white pl-4">
-            "Đi đâu cũng có deal, ăn gì cũng tiết kiệm"
+          <Text size="small" className="opacity-90 text-white pl-2">
+            Voucher ở mọi nơi, săn ngay nào !!!
           </Text>
         </div>
       </div>
@@ -1609,7 +1862,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import { Icon, Box } from 'zmp-ui';
+import { Icon, Box, Button, Text } from 'zmp-ui';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { usePublicStore } from '@/hooks/usePublicStore';
 import { Store } from '@/types/store';
@@ -1631,7 +1884,7 @@ const MapClickHandler = ({ onClick }: { onClick: () => void }) => {
 };
 
 const MapViewComponent: React.FC = () => {
-  const { position, refreshLocation, loading: locLoading } = useUserLocation();
+  const { position, requestLocationForce, loading: locLoading, isDenied } = useUserLocation();
   const { stores, fetchNearby, selectedStore, setSelectedStore } = usePublicStore();
 
   const [keyword, setKeyword] = useState('');
@@ -1653,6 +1906,10 @@ const MapViewComponent: React.FC = () => {
     return () => clearTimeout(timer);
   }, [position, fetchNearby, selectedCategory]);
 
+  useEffect(() => {
+    requestLocationForce();
+  }, []);
+
   const filteredStores = useMemo(() => {
     if (!stores) return [];
     let result = stores;
@@ -1669,9 +1926,8 @@ const MapViewComponent: React.FC = () => {
   }, [stores, keyword]);
 
   const handleLocateMe = () => {
-    refreshLocation();
+    requestLocationForce();
     setLocateTrigger((prev) => prev + 1);
-
     setSelectedStore(null);
   };
 
@@ -1680,6 +1936,37 @@ const MapViewComponent: React.FC = () => {
       <MapSearchBar keyword={keyword} setKeyword={setKeyword} />
 
       <Box className="absolute inset-0 z-0">
+        {isDenied && (
+          <div className="absolute inset-0 z-[3000] bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-4 border border-red-100 shadow-sm animate-bounce">
+              <Icon icon="zi-poll-solid" className="text-red-500 text-4xl" />
+            </div>
+
+            <Text.Title size="normal" className="font-bold text-gray-800 mb-2">
+              Cho phép định vị?
+            </Text.Title>
+
+            <Text size="small" className="text-gray-500 mb-6 max-w-[280px]">
+              Để tìm quán gần bạn, vui lòng bấm nút bên dưới và chọn <strong>"Cho phép"</strong> khi
+              được hỏi.
+            </Text>
+
+            <Button
+              // SỬA TẠI ĐÂY: Gọi lại hàm xin quyền thay vì mở cài đặt
+              onClick={() => requestLocationForce()}
+              className="bg-[#D83231] font-bold rounded-full shadow-lg shadow-red-200"
+            >
+              Cấp quyền truy cập
+            </Button>
+
+            <div
+              className="mt-6 text-xs text-gray-400 font-medium cursor-pointer underline"
+              onClick={() => requestLocationForce()}
+            >
+              Thử lại
+            </div>
+          </div>
+        )}
         <MapContainer
           center={position}
           zoom={18}
@@ -3494,9 +3781,10 @@ export const storeService = {
     ) as Promise<ApiResponse<null>>,
 
   // 7. Lấy Flash Sale
-  getFlashSales: (accessToken: string) =>
+  getFlashSales: (accessToken: string, category?: string) =>
     api.get('/api/store/flash-sale', {
       headers: { Authorization: `Bearer ${accessToken}` },
+      params: { category },
     }) as Promise<ApiResponse<FlashSaleItem[]>>,
 
   // 8. Lấy chi tiết quán
@@ -3550,6 +3838,11 @@ export const userLoadingState = atom<boolean>({
 export const flashSaleState = atom<any[]>({
   key: 'flashSaleState',
   default: [],
+});
+
+export const locationPermissionDeniedState = atom<boolean>({
+  key: 'locationPermissionDeniedState',
+  default: false,
 });
 
 
@@ -3717,7 +4010,7 @@ FILE PATH: tsconfig.json
 ================================================
 FILE PATH: www\app-config.json
 ================================================
-{"app":{"title":"zaui-LoctionVoucher","textColor":{"light":"black","dark":"white"},"statusBar":"transparent","actionBarHidden":true,"hideIOSSafeAreaBottom":false,"hideAndroidBottomNavigationBar":false},"listCSS":["assets/index-bYF4fNSH.css"],"listSyncJS":["assets/index.DHYXlH7e.module.js"],"listAsyncJS":[],"pages":[]}
+{"app":{"title":"zaui-LoctionVoucher","textColor":{"light":"black","dark":"white"},"statusBar":"transparent","actionBarHidden":true,"hideIOSSafeAreaBottom":false,"hideAndroidBottomNavigationBar":false},"listCSS":["assets/index-Ch9Zyya-.css"],"listSyncJS":["assets/index.D6u_Cp7Y.module.js"],"listAsyncJS":[],"pages":[]}
 
 ================================================
 FILE PATH: zmp-cli.json

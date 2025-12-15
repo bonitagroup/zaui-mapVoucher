@@ -41,3 +41,8 @@ export const flashSaleState = atom<any[]>({
   key: 'flashSaleState',
   default: [],
 });
+
+export const locationPermissionDeniedState = atom<boolean>({
+  key: 'locationPermissionDeniedState',
+  default: false,
+});

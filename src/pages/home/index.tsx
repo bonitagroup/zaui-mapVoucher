@@ -1,3 +1,4 @@
+// FILE: src/pages/home/index.tsx
 import React, { useEffect, useState } from 'react';
 import { Page, Input, Box, Text, Icon } from 'zmp-ui';
 import { usePublicStore } from '@/hooks/usePublicStore';
@@ -6,13 +7,18 @@ import WelcomeHeader from './WelcomeHeader';
 import TrendingList from './TrendingList';
 import FlashSaleList from './FlashSaleList';
 import { Store } from '@/types/store';
+import { useUserLocation } from '@/hooks/useUserLocation';
+import NewsSection from './NewsSection';
+import CategoryQuickAccess from './CategoryQuickAccess';
 
 const HomePage: React.FC = () => {
-  const { search, stores, loading, fetchNearby } = usePublicStore();
+  const { search, stores, loading, fetchNearby, fetchFlashSales } = usePublicStore();
   const navigate = useNavigate();
 
+  const { position, checkLocationSilent } = useUserLocation();
   const [keyword, setKeyword] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
 
   const safeStores = Array.isArray(stores) ? stores : [];
 
@@ -23,40 +29,84 @@ const HomePage: React.FC = () => {
   const exitSearchMode = () => {
     setIsSearchFocused(false);
     setKeyword('');
-    fetchNearby();
+    if (position && position[0]) {
+      fetchNearby({
+        lat: position[0],
+        lng: position[1],
+        category: selectedCategory,
+        forceRefresh: true,
+      });
+    }
   };
 
   const handleStoreClick = (store: Store) => {
     navigate(`/store/${store.id}`);
   };
 
+  const handleSelectCategory = (catValue: string) => {
+    setSelectedCategory(catValue);
+    if (position && position[0] && position[1]) {
+      // Lọc danh sách Quán
+      fetchNearby({
+        lat: position[0],
+        lng: position[1],
+        category: catValue,
+        forceRefresh: true,
+      });
+
+      // Lọc danh sách Flash Sale
+      fetchFlashSales(catValue);
+    }
+  };
+
   useEffect(() => {
-    fetchNearby({ forceRefresh: true });
+    checkLocationSilent();
   }, []);
+
+  useEffect(() => {
+    if (position && position[0] && position[1]) {
+      fetchNearby({
+        lat: position[0],
+        lng: position[1],
+        category: selectedCategory,
+        forceRefresh: true,
+      });
+      fetchFlashSales(selectedCategory);
+    }
+  }, [position[0], position[1]]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (keyword.trim()) {
         search(keyword);
       } else if (keyword === '') {
-        if (!isSearchFocused) fetchNearby();
+        if (!isSearchFocused && position[0]) {
+          fetchNearby({
+            lat: position[0],
+            lng: position[1],
+            category: selectedCategory,
+            forceRefresh: true,
+          });
+        }
       }
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [keyword, search, fetchNearby, isSearchFocused]);
+  }, [keyword, isSearchFocused]);
 
   return (
     <Page className="bg-gray-100 h-full pb-20 relative">
       <WelcomeHeader />
 
-      <Box p={4} className="-mt-[80px] relative z-10">
+      <CategoryQuickAccess onSelect={handleSelectCategory} activeCategory={selectedCategory} />
+
+      <Box className="pt-2 pb-2 mx-2 relative z-10">
         <div
           onClick={() => setIsSearchFocused(true)}
-          className="bg-white rounded-full h-12 flex items-center px-4 shadow-sm border border-gray-100 active:scale-95 transition-transform"
+          className="bg-white rounded-full h-12 flex items-center px-4 shadow-sm border border-gray-300 active:scale-95 transition-transform"
         >
           <Icon icon="zi-search" className="text-red-600 mr-2" />
-          <Text className="text-gray-400 text-sm flex-1">Tìm kiếm theo yêu cầu?</Text>
+          <Text className="text-gray-400 text-sm flex-1">Tìm kiếm theo yêu cầu...</Text>
         </div>
       </Box>
 
@@ -68,12 +118,7 @@ const HomePage: React.FC = () => {
         <FlashSaleList />
       </div>
 
-      <div className="bg-white p-4 pb-2 pt-4 rounded-2xl m-2 shadow-sm border border-gray-100">
-        <Text.Title size="normal" className="font-extrabold text-gray-800 uppercase tracking-tight">
-          Tin tức nổi bật
-        </Text.Title>
-        <div className="text-gray-400 text-sm py-4 text-center">Chưa có tin tức mới</div>
-      </div>
+      <NewsSection />
 
       {isSearchFocused && (
         <div className="fixed inset-0 bg-gray-50 z-[9999] flex flex-col animate-[fadeIn_0.2s_ease-in-out]">

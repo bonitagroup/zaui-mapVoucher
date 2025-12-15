@@ -42,7 +42,7 @@ const TrendingCard = React.memo(({ store, onClick }: TrendingCardProps) => {
       className="flex-shrink-0 w-[160px] flex flex-col bg-white rounded-2xl overflow-hidden active:opacity-90 transition-all snap-start border border-red-500 shadow-sm relative"
       onClick={onClick}
     >
-      <div className="h-[140px] w-full relative">
+      <div className="h-[120px] w-full relative">
         <img
           src={store.image || 'https://via.placeholder.com/150'}
           className="w-full h-full object-cover"
@@ -74,7 +74,7 @@ const TrendingCard = React.memo(({ store, onClick }: TrendingCardProps) => {
           )}
 
           {maxDiscount && (
-            <div className="absolute top-[187px] right-2 bg-[#D83231] text-white text-lg font-extrabold px-2 py-3 rounded-xl shadow-md z-10 flex items-center justify-center min-w-[60px]">
+            <div className="absolute bottom-2 right-2 bg-[#D83231] text-white text-base font-semibold px-2 py-3 rounded-xl z-10 flex items-center justify-center min-w-[40px]">
               {maxDiscount}
             </div>
           )}
