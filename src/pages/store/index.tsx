@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import api from '@/services/api';
 import { useStore } from '@/hooks/useStore';
 import { FaDirections } from 'react-icons/fa';
+import { openMap } from '@/utils/map';
 
 const StoreDetailPage: React.FC = () => {
   const { id } = useParams(); // Lấy ID quán từ URL
@@ -48,14 +49,6 @@ const StoreDetailPage: React.FC = () => {
     );
 
   if (!store) return <div className="text-center mt-20">Không tìm thấy quán</div>;
-  const openMap = () => {
-    const lat = store.lat;
-    const lng = store.lng;
-
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-
-    window.location.href = url;
-  };
 
   return (
     <Page className="bg-white pb-20 relative">
@@ -111,7 +104,7 @@ const StoreDetailPage: React.FC = () => {
 
           <div className="">
             <button
-              onClick={openMap}
+              onClick={() => {openMap(store.lat, store.lng)}}
               className="
                 flex items-center gap-2
                 bg-green-600 active:bg-green-700
