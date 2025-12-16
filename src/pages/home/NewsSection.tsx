@@ -25,7 +25,7 @@ const NewsSection = () => {
         </Text>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-row gap-4 overflow-auto">
         {news.length > 0 ? (
           news.slice(0, 3).map((item) => (
             <div
@@ -33,7 +33,7 @@ const NewsSection = () => {
               className="border border-red-500 rounded-2xl p-2.5 shadow-sm bg-white"
               onClick={() => navigate(`/news/${item.id}`)}
             >
-              <div className="h-44 w-full rounded-xl overflow-hidden mb-3 relative bg-gray-100">
+              <div className="h-44 w-80 rounded-xl overflow-hidden mb-3 relative bg-gray-100">
                 <img
                   src={item.image}
                   alt={item.title}
@@ -51,7 +51,9 @@ const NewsSection = () => {
 
               <div className="flex justify-between items-center px-1">
                 <div className="flex items-center gap-4">
-                  <Text className="text-[#D83231] font-bold text-sm">{categories.find(d => d.id === item.categoryId)?.name}</Text>
+                  <Text className="text-[#D83231] font-bold text-sm">
+                    {categories.find((d) => d.id === item.categoryId)?.name}
+                  </Text>
 
                   <div className="flex items-center gap-1 text-gray-500 text-sm font-medium">
                     <FaEye size={14} />
@@ -60,7 +62,7 @@ const NewsSection = () => {
                 </div>
 
                 <Button
-                onClick={() => navigate(`/news/${item.id}`)}
+                  onClick={() => navigate(`/news/${item.id}`)}
                   size="small"
                   className="bg-[#D83231] text-white font-bold h-8 rounded-full px-5 shadow-lg shadow-red-100 border-none"
                 >

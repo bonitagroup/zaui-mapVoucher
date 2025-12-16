@@ -1,83 +1,79 @@
-import React from 'react';
-import { Box, Text, Button, Icon } from 'zmp-ui';
+import React, { useMemo } from 'react';
+import { Box, Text, Button } from 'zmp-ui';
 import { Store } from '@/types/store';
 import { useNavigate } from 'react-router-dom';
+import { FaStar } from 'react-icons/fa';
 
-const StoreDealItem = ({ store }: { store: Store }) => {
+// Component hiển thị icon vé voucher màu đỏ với số lượng
+const VoucherTicketIcon = ({ count }: { count: number }) => (
+  <div className="relative flex items-center justify-center w-12 h-7 bg-[#D83231] text-white rounded-sm shadow-sm mask-ticket">
+    {/* CSS Trick tạo hình vé lẹm 2 đầu (nếu muốn cầu kỳ), ở đây dùng bo góc đơn giản cho giống ảnh */}
+    <div className="absolute -left-1 w-2 h-2 bg-white rounded-full"></div>
+    <div className="absolute -right-1 w-2 h-2 bg-white rounded-full"></div>
+    <div className="border-l border-dashed border-white/40 h-full absolute left-3"></div>
+    <span className="font-bold text-sm ml-1">{count}</span>
+    <span className="absolute -left-[14px] top-1/2 -translate-y-1/2 text-[8px] -rotate-90 font-bold tracking-tighter opacity-80">
+      VOUCHER
+    </span>
+  </div>
+);
+
+const StoreDealItem = React.memo(({ store }: { store: Store }) => {
   const navigate = useNavigate();
-  // Filter voucher thường (không phải flash sale)
-  const normalVouchers = store.vouchers?.filter((v) => v.type !== 'FLASH_SALE') || [];
-  const voucherCount = normalVouchers.length;
-
-  // Fake rating vì trong model chưa có
-  const rating = 4.5;
-  const reviewCount = Math.floor(Math.random() * 100) + 10;
+  // Lọc voucher thường
+  const voucherCount = useMemo(
+    () => store.vouchers?.filter((v) => v.type !== 'FLASH_SALE').length || 0,
+    [store.vouchers]
+  );
 
   if (voucherCount === 0) return null;
 
   return (
-    <div className="bg-white p-4 border-b border-gray-50 last:border-none flex gap-4">
-      {/* Ảnh quán (Vuông bo góc) */}
-      <div className="w-28 h-28 flex-shrink-0">
+    <div className="bg-white border border-red-100 rounded-2xl p-3 mb-3 shadow-sm flex gap-3 relative overflow-hidden">
+      {/* Ảnh vuông bo tròn */}
+      <div className="w-24 h-24 flex-shrink-0 relative rounded-xl overflow-hidden border border-gray-100">
         <img
           src={store.image || 'https://via.placeholder.com/150'}
-          className="w-full h-full object-cover rounded-xl bg-gray-100 border border-gray-100"
+          className="w-full h-full object-cover"
           alt={store.name}
+          loading="lazy"
         />
       </div>
 
-      {/* Thông tin bên phải */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <Text.Title size="small" className="font-bold text-gray-800 line-clamp-1 uppercase">
-          {store.name}
-        </Text.Title>
-
-        {/* Rating */}
-        <div className="flex items-center gap-1 my-1">
-          <div className="flex text-yellow-400 text-xs">
-            {'★★★★★'.split('').map((s, i) => (
-              <span
-                key={i}
-                className={i < Math.floor(rating) ? 'text-yellow-400' : 'text-gray-300'}
-              >
-                ★
-              </span>
-            ))}
+      {/* Thông tin */}
+      <div className="flex-1 flex flex-col justify-between py-0.5">
+        <div className="flex justify-between items-start">
+          <div>
+            <Text.Title
+              size="small"
+              className="font-extrabold text-gray-900 line-clamp-1 text-[15px]"
+            >
+              {store.name}
+            </Text.Title>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Text size="xxSmall" className="text-gray-500 font-medium">
+                {store.category || 'Ăn uống'}
+              </Text>
+              <span className="text-gray-300">•</span>
+              <div className="flex items-center gap-0.5">
+                <FaStar className="text-yellow-400 text-[10px]" />
+                <span className="text-[10px] font-bold text-gray-700">4.8</span>
+              </div>
+            </div>
           </div>
-          <Text size="xxSmall" className="text-gray-500">
-            {rating} ({reviewCount} đánh giá)
-          </Text>
-        </div>
-
-        {/* Badge số lượng ưu đãi */}
-        <div className="mb-2">
-          <span className="bg-pink-50 text-pink-500 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block">
-            {voucherCount} ưu đãi đang có
+          {/* Khoảng cách */}
+          <span className="text-red-500 text-[10px] font-bold whitespace-nowrap mt-1">
+            {store.distance ? `${store.distance.toFixed(1)} km` : '0.1 km'}
           </span>
         </div>
 
-        {/* List voucher text (tối đa 2 dòng) */}
-        <div className="mb-3 space-y-0.5">
-          {normalVouchers.slice(0, 2).map((v) => (
-            <div key={v.id} className="flex items-center gap-1.5">
-              <div className="w-1 h-1 rounded-full bg-gray-400"></div>
-              <Text size="xxSmall" className="text-gray-500 line-clamp-1">
-                {v.title}
-              </Text>
-            </div>
-          ))}
-          {voucherCount > 2 && (
-            <Text size="xxSmall" className="text-gray-400 italic pl-2.5">
-              + {voucherCount - 2} ưu đãi khác...
-            </Text>
-          )}
-        </div>
+        {/* Dòng dưới: Icon Voucher và Nút */}
+        <div className="flex justify-between items-end mt-2">
+          <VoucherTicketIcon count={voucherCount} />
 
-        {/* Nút Xem chi tiết */}
-        <div className="mt-auto">
           <Button
             size="small"
-            className="bg-[#D83231] text-white font-bold h-7 text-xs rounded-full px-4"
+            className="bg-[#D83231] hover:bg-[#b92b2a] active:bg-[#9f2423] text-white font-bold h-8 text-xs rounded-lg px-4 shadow-md shadow-red-100 border-none"
             onClick={() => navigate(`/store/${store.id}`)}
           >
             Xem chi tiết
@@ -86,40 +82,38 @@ const StoreDealItem = ({ store }: { store: Store }) => {
       </div>
     </div>
   );
-};
+});
 
 const StoreDealList = ({ stores }: { stores: Store[] }) => {
-  const storesWithDeals = stores.filter((s) => s.vouchers && s.vouchers.length > 0);
+  const storesWithDeals = useMemo(
+    () => stores.filter((s) => s.vouchers && s.vouchers.length > 0),
+    [stores]
+  );
 
   return (
-    <Box className="bg-white mt-2 pb-20">
-      <div className="p-4 pb-0 flex justify-between items-end">
-        <div className="flex items-center gap-2">
-          <Icon icon="zi-poll-solid" className="text-pink-500 font-bold" />
-          <div>
-            <Text.Title size="normal" className="font-extrabold uppercase text-gray-800">
-              Ưu đãi dành cho bạn
-            </Text.Title>
-            <Text size="xxSmall" className="text-gray-400">
-              {storesWithDeals.length} cửa hàng • 5km quanh bạn
-            </Text>
-          </div>
-        </div>
+    <Box className="bg-white px-4 pb-24 pt-4 rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.03)] border-t border-gray-50">
+      <div className="mb-4">
+        <Text.Title size="normal" className="font-extrabold text-[#D83231] uppercase">
+          ƯU ĐÃI DÀNH RIÊNG CHO BẠN
+        </Text.Title>
+        <Text size="xSmall" className="text-gray-500 font-medium mt-0.5">
+          {storesWithDeals.length} cửa hàng • 5km quanh bạn
+        </Text>
       </div>
 
-      <div className="divide-y divide-gray-50">
+      <div className="flex flex-col">
         {storesWithDeals.map((store) => (
           <StoreDealItem key={store.id} store={store} />
         ))}
       </div>
 
       {storesWithDeals.length === 0 && (
-        <div className="text-center py-10 text-gray-400 text-sm">
-          Không tìm thấy ưu đãi nào quanh đây :(
+        <div className="text-center py-10 text-gray-400 text-sm italic">
+          Đang cập nhật thêm ưu đãi...
         </div>
       )}
     </Box>
   );
 };
 
-export default StoreDealList;
+export default React.memo(StoreDealList);

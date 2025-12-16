@@ -1,5 +1,4 @@
 import React from 'react';
-import { VOUCHER_TABS } from '@/constants/categories';
 
 interface CategoryTabsProps {
   activeTab: string;
@@ -7,23 +6,27 @@ interface CategoryTabsProps {
 }
 
 const CategoryTabs: React.FC<CategoryTabsProps> = ({ activeTab, setActiveTab }) => {
+  const categories = ['Tất cả', 'Ẩm thực', 'Thể thao', 'Giải trí', 'Lưu Trú'];
   return (
-    <div className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-      <div className="flex overflow-x-auto no-scrollbar px-4 pt-3 pb-1 gap-6">
-        {VOUCHER_TABS.map((cat) => {
+    <div className="bg-white pt-4 pb-3 sticky  z-40 shadow-sm border-b border-gray-100">
+      <div className="flex overflow-x-auto no-scrollbar px-4 gap-1">
+        {categories.map((cat) => {
           const isActive = activeTab === cat;
           return (
-            <div
+            <button
               key={cat}
               onClick={() => setActiveTab(cat)}
-              className={`flex-shrink-0 pb-2 cursor-pointer transition-all font-medium text-sm ${
-                isActive
-                  ? 'text-[#D83231] border-b-2 border-[#D83231] font-bold'
-                  : 'text-gray-500 border-b-2 border-transparent'
-              }`}
+              className={`
+                flex-shrink-0 px-5 py-2 rounded-full text-sm font-bold border transition-all duration-200
+                ${
+                  isActive
+                    ? 'bg-[#D83231] text-white border-[#D83231] shadow-md shadow-red-200'
+                    : 'bg-white text-red-500 border-red-400 hover:border-red-300 hover:text-red-500'
+                }
+              `}
             >
               {cat}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -31,4 +34,4 @@ const CategoryTabs: React.FC<CategoryTabsProps> = ({ activeTab, setActiveTab }) 
   );
 };
 
-export default CategoryTabs;
+export default React.memo(CategoryTabs);
