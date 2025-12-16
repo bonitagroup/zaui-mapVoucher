@@ -105,19 +105,19 @@ const FlashSaleCard = React.memo(({ item, onSave }: FlashSaleItemProps) => {
       </div>
 
       <div className="flex flex-col items-end justify-between p-2 pl-0 gap-2 w-[90px] flex-shrink-0 border-gray-200 ml-1 relative">
-        <div className="bg-red-600 text-white text-[10px] w-full text-center font-bold px-1 py-1 rounded border border-red-100">
+        <div className="bg-[#D83231] text-white text-[10px] w-[95px] text-center font-bold px-1 py-1 rounded">
           {item.code || 'CODE'}
         </div>
 
-        <div className="text-red-500 text-[10px] border border-red-500 rounded-md py-1 font-bold text-center w-full">
-          SL: <span className="text-red-500 text-xs">{item.quantity}</span>
+        <div className="border border-[#D83231] text-[#D83231] bg-white text-[12px] font-bold text-center w-[95px] px-4 py-0.5 rounded">
+          SL: {item.quantity}
         </div>
 
         <button
           onClick={handleSave}
           disabled={isLoading || isSaved}
           className={`
-            flex flex-col items-center justify-center w-full py-1.5 px-1 rounded-lg transition-all 
+            flex flex-col items-center justify-center w-[95px] py-1.5 px-1 rounded-lg transition-all 
             ${
               isSaved
                 ? 'bg-gray-100 text-gray-400 cursor-default'

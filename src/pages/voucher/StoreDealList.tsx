@@ -3,20 +3,7 @@ import { Box, Text, Button } from 'zmp-ui';
 import { Store } from '@/types/store';
 import { useNavigate } from 'react-router-dom';
 import { FaStar } from 'react-icons/fa';
-
-// Component hiển thị icon vé voucher màu đỏ với số lượng
-const VoucherTicketIcon = ({ count }: { count: number }) => (
-  <div className="relative flex items-center justify-center w-12 h-7 bg-[#D83231] text-white rounded-sm shadow-sm mask-ticket">
-    {/* CSS Trick tạo hình vé lẹm 2 đầu (nếu muốn cầu kỳ), ở đây dùng bo góc đơn giản cho giống ảnh */}
-    <div className="absolute -left-1 w-2 h-2 bg-white rounded-full"></div>
-    <div className="absolute -right-1 w-2 h-2 bg-white rounded-full"></div>
-    <div className="border-l border-dashed border-white/40 h-full absolute left-3"></div>
-    <span className="font-bold text-sm ml-1">{count}</span>
-    <span className="absolute -left-[14px] top-1/2 -translate-y-1/2 text-[8px] -rotate-90 font-bold tracking-tighter opacity-80">
-      VOUCHER
-    </span>
-  </div>
-);
+import voucherMiniIcon from '../../static/icon voucher .svg';
 
 const StoreDealItem = React.memo(({ store }: { store: Store }) => {
   const navigate = useNavigate();
@@ -69,7 +56,17 @@ const StoreDealItem = React.memo(({ store }: { store: Store }) => {
 
         {/* Dòng dưới: Icon Voucher và Nút */}
         <div className="flex justify-between items-end mt-2">
-          <VoucherTicketIcon count={voucherCount} />
+          <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center">
+            <img
+              src={voucherMiniIcon}
+              className="w-full h-full object-contain"
+              alt="voucher-icon"
+            />
+
+            <span className="absolute inset-0 flex items-center justify-center text-white text-lg font-extrabold z-10 pt-1 pl-3 pb-2">
+              {store.vouchers?.length || 0}
+            </span>
+          </div>
 
           <Button
             size="small"

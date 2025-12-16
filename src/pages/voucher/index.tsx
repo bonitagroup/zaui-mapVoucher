@@ -24,8 +24,6 @@ const PromotionPage: React.FC = () => {
 
   useEffect(() => {
     const apiCategory = getCategoryKeyword(activeTab);
-
-    console.log(`Đang lấy Flash Sale cho: ${activeTab} -> API key: ${apiCategory}`);
     fetchFlashSales(apiCategory);
 
     if (stores.length === 0) {
