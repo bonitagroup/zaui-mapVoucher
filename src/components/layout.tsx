@@ -14,15 +14,15 @@ import News from '@/pages/news';
 
 const Layout = () => {
   const location = useLocation();
-  const isNotShowBotton = location.pathname === '/' || location.pathname === '/welcome' || location.pathname === '/register' || location.pathname.startsWith('/news/');
+  const isNotShowBotton = location.pathname === '/welcome' || location.pathname === '/register' || location.pathname.startsWith('/news/');
 
   return (
     <Box className="flex-1 flex flex-col h-screen overflow-hidden">
       <Box className="flex-1 overflow-auto relative">
         <Routes>
-          <Route path="/" element={<WelcomePage />} />
           <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/home" element={<HomePage />} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/map" element={<MapPage />} />
           <Route path="/voucher" element={<VoucherPage />} />
           <Route path="/profile" element={<ProfilePage />} />
