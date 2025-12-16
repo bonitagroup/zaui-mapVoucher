@@ -124,12 +124,12 @@ export default function LocationPicker({
 
   return (
     <div className={className}>
-      <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
+      <div className="overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-black/5 relative h-[75vh]">
         {/* Map */}
         <MapContainer
           center={initialCenter}
           zoom={initialZoom}
-          className="h-[420px] w-full"
+          className="absolute inset-0 w-full"
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 

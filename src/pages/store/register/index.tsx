@@ -1,10 +1,11 @@
-import ContainerLayout from "@/components/container";
+
 import StepperForm, { StepConfig } from "@/components/StepperForm";
 import { useAtomValue } from "jotai";
 import { toast } from "react-hot-toast";
-import StepBusinessInfo from "./step1";
 import { registerStoreFormState } from "@/state";
-import StepBusinessPlan from "./step2";
+import Step2 from "./Step2";
+import Step1 from "./Step1";
+import ContainerLayout from "../../../components/Container";
 
 export default function Register() {
     const form = useAtomValue(registerStoreFormState);
@@ -13,7 +14,7 @@ export default function Register() {
         {
             key: "info",
             title: "Thông tin doanh nghiệp",
-            content: <StepBusinessInfo />,
+            content: <Step1 />,
             canProceed: () =>
                 !!form.businessName &&
                 !!form.phone &&
@@ -23,7 +24,7 @@ export default function Register() {
         {
             key: "plan",
             title: "Kế hoạch voucher",
-            content: <StepBusinessPlan />,
+            content: <Step2 />,
             canProceed: () =>
                 form.voucherTypes.length > 0 &&
                 !!form.monthlyBudget,

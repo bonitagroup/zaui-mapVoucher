@@ -318,8 +318,6 @@ export default function StepperForm({
             )}
 
             <div className="space-y-5">
-                <h3 className="text-lg font-semibold text-gray-800">{step.title}</h3>
-
                 {content}
 
                 <div className="flex gap-3 pt-4">
