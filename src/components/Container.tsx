@@ -6,12 +6,14 @@ interface ContainerLayoutProps {
     title: string;
     children?: ReactNode;
     showBack?: boolean;
+    pathBack?: string;
 }
 
 export default function ContainerLayout({
     title,
     children,
     showBack = true,
+    pathBack,
 }: ContainerLayoutProps) {
     const navigate = useNavigate();
 
@@ -22,7 +24,7 @@ export default function ContainerLayout({
                 <div className="flex items-center gap-3 px-4 py-3 mt-10">
                     {showBack && (
                         <button
-                            onClick={() => navigate(-1)}
+                            onClick={() => pathBack ? navigate(pathBack) : navigate(-1)}
                             className="p-2 rounded-full hover:bg-red-500 transition"
                         >
                             <IoArrowBack size={22} />
@@ -30,7 +32,7 @@ export default function ContainerLayout({
                     )}
                     <h1 className="text-lg font-semibold truncate">{title}</h1>
                 </div>
-            </header>
+            </header> 
 
             {/* Content */}
             <main className="flex-1 p-4">{children}</main>

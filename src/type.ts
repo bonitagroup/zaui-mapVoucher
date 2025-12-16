@@ -15,3 +15,17 @@ export interface RegisterStoreForm {
     monthlyBudget: string;
     campaignGoal: string;
 }
+
+export interface Category {
+    id: number;
+    name: string;
+}
+
+export interface News {
+    id: number;
+    title: string;
+    image: string;
+    categoryId: number;
+    views: number;
+    content: string;
+}

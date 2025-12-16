@@ -10,6 +10,7 @@ import StoreDetailPage from '@/pages/store';
 import MyVoucherPage from '@/pages/profile/my-voucher/index';
 import RegisterStore from '@/pages/store/register';
 import ManagementStore from '@/pages/store/management';
+import News from '@/pages/news';
 
 const Layout = () => {
   const location = useLocation();
@@ -29,6 +30,10 @@ const Layout = () => {
           <Route path="/my-voucher" element={<MyVoucherPage />} />
           <Route path="/register" element={<RegisterStore />} />
           <Route path="/management" element={<ManagementStore />} />
+
+          <Route path="/management" element={<ManagementStore />} />
+
+          <Route path="/news/:id" element={<News />} />
 
         </Routes>
       </Box>

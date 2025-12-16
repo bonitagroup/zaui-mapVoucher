@@ -2,19 +2,13 @@ import React from 'react';
 import { Text, Button } from 'zmp-ui';
 import { FaEye } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import { useAtom } from 'jotai';
+import { categoryState, newsState } from '@/state';
 
 const NewsSection = () => {
   const navigate = useNavigate();
-
-  const newsList = [
-    {
-      id: 1,
-      title: 'Top 10 quán ngon rẻ Thái Nguyên không thể bỏ qua',
-      image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=500&q=80',
-      category: 'Ẩm thực',
-      views: '132K',
-    },
-  ];
+  const [news] = useAtom(newsState);
+  const [categories] = useAtom(categoryState);
 
   return (
     <div className="bg-white p-4 pt-4 pb-4 rounded-2xl m-2 shadow-sm border border-gray-100">
@@ -32,12 +26,12 @@ const NewsSection = () => {
       </div>
 
       <div className="flex flex-col gap-4">
-        {newsList.length > 0 ? (
-          newsList.map((item) => (
+        {news.length > 0 ? (
+          news.slice(0, 3).map((item) => (
             <div
               key={item.id}
               className="border border-red-500 rounded-2xl p-2.5 shadow-sm bg-white"
-              onClick={() => console.log('Xem tin', item.id)}
+              onClick={() => navigate(`/news/${item.id}`)}
             >
               <div className="h-44 w-full rounded-xl overflow-hidden mb-3 relative bg-gray-100">
                 <img
@@ -57,7 +51,7 @@ const NewsSection = () => {
 
               <div className="flex justify-between items-center px-1">
                 <div className="flex items-center gap-4">
-                  <Text className="text-[#D83231] font-bold text-sm">{item.category}</Text>
+                  <Text className="text-[#D83231] font-bold text-sm">{categories.find(d => d.id === item.categoryId)?.name}</Text>
 
                   <div className="flex items-center gap-1 text-gray-500 text-sm font-medium">
                     <FaEye size={14} />
@@ -66,6 +60,7 @@ const NewsSection = () => {
                 </div>
 
                 <Button
+                onClick={() => navigate(`/news/${item.id}`)}
                   size="small"
                   className="bg-[#D83231] text-white font-bold h-8 rounded-full px-5 shadow-lg shadow-red-100 border-none"
                 >
