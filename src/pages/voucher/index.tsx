@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Page, Box, Text } from 'zmp-ui';
 import { useStore } from '@/hooks/useStore';
 import CategoryTabs from './CategoryTabs';
@@ -9,28 +9,38 @@ const PromotionPage: React.FC = () => {
   const { stores, flashSales, fetchNearby, fetchFlashSales } = useStore();
   const [activeTab, setActiveTab] = useState('Tất cả');
 
+  const getCategoryKeyword = (tabName: string) => {
+    const lowerTab = tabName.toLowerCase();
+
+    if (lowerTab === 'ẩm thực') return 'food|drink';
+    if (lowerTab === 'lưu trú' || lowerTab === 'dịch vụ') return 'service';
+    if (lowerTab === 'giải trí') return 'playground';
+    if (lowerTab === 'sức khỏe') return 'health';
+    if (lowerTab === 'thể thao') return 'sport';
+    if (lowerTab === 'tất cả' || lowerTab === 'flash sale') return 'Tất cả';
+
+    return tabName;
+  };
+
   useEffect(() => {
-    fetchFlashSales();
-    fetchNearby();
-  }, []);
+    const apiCategory = getCategoryKeyword(activeTab);
+
+    console.log(`Đang lấy Flash Sale cho: ${activeTab} -> API key: ${apiCategory}`);
+    fetchFlashSales(apiCategory);
+
+    if (stores.length === 0) {
+      fetchNearby();
+    }
+  }, [activeTab]);
 
   const filteredStores = useMemo(() => {
     if (!stores) return [];
-    if (activeTab === 'Tất cả') return stores;
+    if (activeTab === 'Tất cả' || activeTab === 'Flash Sale') return stores;
+
+    const keyword = getCategoryKeyword(activeTab);
+
     return stores.filter(
-      (s) =>
-        s.category &&
-        s.category
-          .toLowerCase()
-          .includes(
-            activeTab === 'Ẩm thực'
-              ? 'food'
-              : activeTab === 'Dịch vụ'
-              ? 'service'
-              : activeTab === 'Giải trí'
-              ? 'playground'
-              : activeTab.toLowerCase()
-          )
+      (s) => s.category && s.category.toLowerCase().includes(keyword.toLowerCase())
     );
   }, [stores, activeTab]);
 
@@ -44,17 +54,12 @@ const PromotionPage: React.FC = () => {
           Nhanh tay, lựa chọn ngay !!!
         </Text>
       </Box>
-      {/* Container chính cuộn được */}
+
       <div className="flex-1 overflow-y-auto no-scrollbar pb-safe scroll-smooth">
-        {/* 2. Tabs dạng Pills */}
         <CategoryTabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        {/* 3. Flash Sale */}
-        {(activeTab === 'Tất cả' || activeTab === 'Flash Sale') && (
-          <FlashSaleSection flashSales={flashSales} />
-        )}
+        <FlashSaleSection flashSales={flashSales} />
 
-        {/* 4. Danh sách quán */}
         <StoreDealList stores={filteredStores} />
       </div>
     </Page>
