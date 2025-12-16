@@ -1,5 +1,4 @@
-// FILE: src/pages/home/index.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Page, Input, Box, Text, Icon } from 'zmp-ui';
 import { usePublicStore } from '@/hooks/usePublicStore';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +10,10 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import NewsSection from './NewsSection';
 import CategoryQuickAccess from './CategoryQuickAccess';
 
+import { useRecoilState } from 'recoil';
+import { lastFetchedLocationState } from '@/states/state';
+import { calculateDistance } from '@/utils/location';
+
 const HomePage: React.FC = () => {
   const { search, stores, loading, fetchNearby, fetchFlashSales } = usePublicStore();
   const navigate = useNavigate();
@@ -19,6 +22,11 @@ const HomePage: React.FC = () => {
   const [keyword, setKeyword] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('Tất cả');
+
+  const [lastFetched, setLastFetched] = useRecoilState(lastFetchedLocationState);
+
+  const isFetchingRef = useRef(false);
+  const isFirstRenderSearch = useRef(true);
 
   const safeStores = Array.isArray(stores) ? stores : [];
 
@@ -46,16 +54,14 @@ const HomePage: React.FC = () => {
   const handleSelectCategory = (catValue: string) => {
     setSelectedCategory(catValue);
     if (position && position[0] && position[1]) {
-      // Lọc danh sách Quán
       fetchNearby({
         lat: position[0],
         lng: position[1],
         category: catValue,
         forceRefresh: true,
       });
-
-      // Lọc danh sách Flash Sale
       fetchFlashSales(catValue);
+      setLastFetched([position[0], position[1]]);
     }
   };
 
@@ -65,27 +71,55 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     if (position && position[0] && position[1]) {
-      fetchNearby({
-        lat: position[0],
-        lng: position[1],
-        category: selectedCategory,
-      });
-      fetchFlashSales(selectedCategory);
+      if (isFetchingRef.current) return;
+
+      const hasData = stores && stores.length > 0;
+      const isDefaultCategory = selectedCategory === 'Tất cả';
+
+      let shouldRefetch = true;
+      if (hasData && isDefaultCategory && lastFetched) {
+        const dist = calculateDistance(position[0], position[1], lastFetched[0], lastFetched[1]);
+        if (dist < 0.1) {
+          shouldRefetch = false;
+        }
+      }
+
+      if (!shouldRefetch) return;
+
+      isFetchingRef.current = true;
+
+      const fetchData = async () => {
+        try {
+          await fetchNearby({
+            lat: position[0],
+            lng: position[1],
+            category: selectedCategory,
+          });
+          fetchFlashSales(selectedCategory);
+
+          setLastFetched([position[0], position[1]]);
+        } finally {
+          setTimeout(() => {
+            isFetchingRef.current = false;
+          }, 500);
+        }
+      };
+
+      fetchData();
     }
-  }, [position[0], position[1]]);
+  }, [position[0], position[1], selectedCategory]);
 
   useEffect(() => {
+    if (isFirstRenderSearch.current) {
+      isFirstRenderSearch.current = false;
+      return;
+    }
+
     const timer = setTimeout(() => {
       if (keyword.trim()) {
         search(keyword);
       } else if (keyword === '') {
         if (!isSearchFocused && position[0]) {
-          fetchNearby({
-            lat: position[0],
-            lng: position[1],
-            category: selectedCategory,
-            forceRefresh: true,
-          });
         }
       }
     }, 1000);

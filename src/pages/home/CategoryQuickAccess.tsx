@@ -15,7 +15,7 @@ const CategoryQuickAccess: React.FC<CategoryQuickAccessProps> = ({ onSelect, act
   ];
 
   return (
-    <Box className="flex justify-center items-center gap-2 px-2 pt-4 pb-2 overflow-x-auto scrollbar-hide  bg-white/20 relative z-20">
+    <Box className="flex justify-center items-center gap-2 px-2  pt-3 overflow-x-auto scrollbar-hide  bg-white/20 relative z-20">
       {categories.map((cat) => {
         const isActive = activeCategory === cat.value;
         return (
