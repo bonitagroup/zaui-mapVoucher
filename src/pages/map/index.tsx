@@ -71,7 +71,7 @@ const MapViewComponent: React.FC = () => {
   return (
     <Page className="bg-gray-100 flex flex-col h-screen overflow-y-auto scroll-smooth">
       <Box className="sticky top-0 z-[1000] bg-[#D83231] shadow-md pb-2">
-        <Box className="pt-4 pl-4 pb-2">
+        <Box className="pt-6 pl-4 ">
           <Text className="font-bold text-2xl text-white">Bản đồ</Text>
           <Text className="font-normal text-sm text-white opacity-90">
             voucher ở mọi nơi, tìm kiếm ngay nào !!!

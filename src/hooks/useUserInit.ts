@@ -40,14 +40,14 @@ export const useUserInit = () => {
   const setLoading = useSetRecoilState(userLoadingState);
 
   const initializeUser = useCallback(
-    async (isInitialLoad = false) => {
+    async (requestUI = false) => {
       try {
-        if (isInitialLoad) {
+        if (requestUI) {
           setLoading(true);
         }
 
         const { userInfo } = await getUserInfo({
-          autoRequestPermission: true,
+          autoRequestPermission: requestUI,
           avatarType: 'normal',
         });
 
@@ -55,7 +55,7 @@ export const useUserInit = () => {
           const now = Date.now();
           let userFromBackend: User | null = null;
 
-          if (now - lastSyncTime > SYNC_COOLDOWN || isInitialLoad) {
+          if (now - lastSyncTime > SYNC_COOLDOWN || requestUI) {
             userFromBackend = await syncUserToBackend({
               id: userInfo.id,
               name: userInfo.name,
@@ -77,9 +77,9 @@ export const useUserInit = () => {
           }
         }
       } catch (error) {
-        console.error('Lỗi khởi tạo user:', error);
+        console.log('Chưa có quyền truy cập thông tin user (Silent check)');
       } finally {
-        if (isInitialLoad) {
+        if (requestUI) {
           setLoading(false);
         }
       }
@@ -88,7 +88,7 @@ export const useUserInit = () => {
   );
 
   useEffect(() => {
-    initializeUser(true);
+    initializeUser(false);
 
     const onAppResume = () => {
       initializeUser(false);
@@ -102,4 +102,6 @@ export const useUserInit = () => {
       events.off(EventName.OpenApp, onAppResume);
     };
   }, [initializeUser]);
+
+  return { initializeUser };
 };

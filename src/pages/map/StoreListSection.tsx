@@ -92,7 +92,7 @@ const StoreListSection: React.FC<StoreListSectionProps> = ({
 
   return (
     <div className="bg-gray-100 rounded-t-3xl min-h-screen relative z-10 -mt-6 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-      <div className="px-1 pb-safe pt-2">
+      <div className="px-1 pb-safe">
         {rawHotStores.length > 0 && (
           <div className="mb-6">
             <div className="flex justify-between flex-col bg-white px-4 py-1 rounded-xl shadow-sm items-center mb-3">
