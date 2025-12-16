@@ -14,7 +14,7 @@ import News from '@/pages/news';
 
 const Layout = () => {
   const location = useLocation();
-  const isNotShowBotton = location.pathname === '/' || location.pathname === '/welcome' || location.pathname === '/register';
+  const isNotShowBotton = location.pathname === '/' || location.pathname === '/welcome' || location.pathname === '/register' || location.pathname.startsWith('/news/');
 
   return (
     <Box className="flex-1 flex flex-col h-screen overflow-hidden">
