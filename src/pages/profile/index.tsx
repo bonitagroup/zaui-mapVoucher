@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Page, Icon, Text, Avatar } from 'zmp-ui';
-import { useRecoilState } from 'recoil';
+import { useRecoilState, useRecoilValue } from 'recoil';
 import { userState } from '@/states/state';
 import { useStore } from '@/hooks/useStore';
-import { getUserInfo, getAccessToken } from 'zmp-sdk';
-import api from '@/services/api';
+import { useUserInit } from '@/hooks/useUserInit';
 import { useNavigate } from 'react-router-dom';
 import { FaCrown, FaMapMarkerAlt } from 'react-icons/fa';
 import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
@@ -12,46 +11,30 @@ import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
 const ProfilePage: React.FC = () => {
   const [user, setUser] = useRecoilState(userState);
   const { myVouchers, fetchMyWallet } = useStore();
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSyncUser = useCallback(async () => {
-    if (loading || user) return;
-    setLoading(true);
-    try {
-      const { userInfo } = await getUserInfo({ autoRequestPermission: true, avatarType: 'normal' });
-      if (userInfo) {
-        try {
-          const token = await getAccessToken({});
-          await api.post(
-            '/api/user/sync',
-            { name: userInfo.name, avatar: userInfo.avatar },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-        } catch (err) {
-          console.error(err);
-        }
-        setUser({ id: userInfo.id, name: userInfo.name, avatar: userInfo.avatar });
-      }
-    } catch (error) {
-      console.log('User denied');
-    } finally {
-      setLoading(false);
+  const { initializeUser } = useUserInit();
+  const hasRequestedRef = useRef(false);
+
+  useEffect(() => {
+    fetchMyWallet();
+    if (!user && !hasRequestedRef.current) {
+      hasRequestedRef.current = true;
+      initializeUser(true);
     }
-  }, [user, loading, setUser]);
+  }, []);
+
+  const handleLoginRequest = () => {
+    initializeUser(true);
+  };
 
   const handleProtectedAction = (action: () => void) => {
     if (user) {
       action();
     } else {
-      handleSyncUser();
+      handleLoginRequest();
     }
   };
-
-  useEffect(() => {
-    if (!user) handleSyncUser();
-    fetchMyWallet();
-  }, []);
 
   const voucherStats = useMemo(() => {
     const list = Array.isArray(myVouchers) ? myVouchers : [];
@@ -123,8 +106,8 @@ const ProfilePage: React.FC = () => {
   return (
     <Page className="bg-[#F4F5F7] h-full pb-24 overflow-y-auto">
       <div
-        className="bg-white p-5 pt-12 pb-6 flex items-center gap-4 cursor-pointer"
-        onClick={!user ? handleSyncUser : undefined}
+        className="bg-white p-5 pt-12 pb-6 flex items-center gap-4 cursor-pointer active:opacity-80"
+        onClick={handleLoginRequest}
       >
         <div className="relative">
           <Avatar
@@ -154,6 +137,7 @@ const ProfilePage: React.FC = () => {
             )}
           </div>
         </div>
+        {!user && <MdOutlineKeyboardArrowRight className="text-gray-400 text-2xl" />}
       </div>
 
       <div className="px-3 -mt-2 space-y-3">
@@ -198,15 +182,12 @@ const ProfilePage: React.FC = () => {
             label="Voucher đã lưu"
             onClick={() => navigate('/my-voucher')}
           />
-
           <StatBox
             num={mockStats.favorites}
             label="Yêu thích"
             onClick={() => console.log('Chuyển trang Yêu thích cũ')}
           />
-
           <StatBox num={mockStats.checkin} label="Check-in" onClick={() => {}} />
-
           <StatBox num={mockStats.badges} label="Badge" onClick={() => {}} />
         </div>
 
@@ -289,9 +270,13 @@ const ProfilePage: React.FC = () => {
               onClick={() => handleProtectedAction(() => console.log('Chức năng địa chỉ cũ'))}
             />
 
-            <SettingItem onClick={() => {
-              navigate('/register');
-            }} icon={<Icon icon="zi-poll-solid" />} label="Đăng ký cửa hàng" />
+            <SettingItem
+              onClick={() => {
+                navigate('/register');
+              }}
+              icon={<Icon icon="zi-poll-solid" />}
+              label="Đăng ký cửa hàng"
+            />
 
             <SettingItem icon={<Icon icon="zi-notif-ring" />} label="Thông báo" />
             <SettingItem icon={<Icon icon="zi-lock" />} label="Quyền riêng tư" />

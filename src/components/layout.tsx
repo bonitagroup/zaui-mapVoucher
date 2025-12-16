@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from 'react-router-dom'; // Thêm useLocation
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { Box } from 'zmp-ui';
 import HomePage from '@/pages/home';
 import MapPage from '@/pages/map';
@@ -11,10 +11,15 @@ import MyVoucherPage from '@/pages/profile/my-voucher/index';
 import RegisterStore from '@/pages/store/register';
 import ManagementStore from '@/pages/store/management';
 import News from '@/pages/news';
+import { useUserInit } from '@/hooks/useUserInit';
 
 const Layout = () => {
   const location = useLocation();
-  const isNotShowBotton = location.pathname === '/welcome' || location.pathname === '/register' || location.pathname.startsWith('/news/');
+  useUserInit();
+  const isNotShowBotton =
+    location.pathname === '/welcome' ||
+    location.pathname === '/register' ||
+    location.pathname.startsWith('/news/');
 
   return (
     <Box className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -34,7 +39,6 @@ const Layout = () => {
           <Route path="/management" element={<ManagementStore />} />
 
           <Route path="/news/:id" element={<News />} />
-
         </Routes>
       </Box>
 
