@@ -48,13 +48,16 @@ FILE PATH: package.json
   "dependencies": {
     "@react-google-maps/api": "^2.20.7",
     "axios": "^1.13.2",
+    "jotai": "^2.16.0",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.6.0",
     "react-icons": "^5.5.0",
     "react-leaflet": "^4.2.1",
-    "react-leaflet-cluster": "^4.0.0",
+    "react-leaflet-cluster": "^3.1.0",
+    "react-toastify": "^11.0.5",
     "recoil": "^0.7.7",
     "zmp-sdk": "latest",
     "zmp-ui": "latest"
@@ -123,6 +126,7 @@ import { App, SnackbarProvider, ZMPRouter } from 'zmp-ui';
 import { RecoilRoot } from 'recoil';
 import { AppProps } from 'zmp-ui/app';
 import Layout from './layout';
+import { Toaster } from 'react-hot-toast';
 
 const MyApp = () => {
   const ZMPSnackbarProvider = SnackbarProvider as any;
@@ -135,6 +139,7 @@ const MyApp = () => {
             <Layout />
           </ZMPRouter>
         </ZMPSnackbarProvider>
+        <Toaster position="bottom-center" />
       </App>
     </RecoilRoot>
   );
@@ -230,6 +235,50 @@ export default Logo;
 
 
 ================================================
+FILE PATH: src\components\Container.tsx
+================================================
+import { ReactNode } from "react";
+import { IoArrowBack } from "react-icons/io5";
+import { useNavigate } from "react-router-dom";
+
+interface ContainerLayoutProps {
+    title: string;
+    children?: ReactNode;
+    showBack?: boolean;
+}
+
+export default function ContainerLayout({
+    title,
+    children,
+    showBack = true,
+}: ContainerLayoutProps) {
+    const navigate = useNavigate();
+
+    return (
+        <div className="min-h-screen bg-gray-50 flex flex-col">
+            {/* AppBar */}
+            <header className="bg-red-600 text-white shadow-md">
+                <div className="flex items-center gap-3 px-4 py-3 mt-10">
+                    {showBack && (
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="p-2 rounded-full hover:bg-red-500 transition"
+                        >
+                            <IoArrowBack size={22} />
+                        </button>
+                    )}
+                    <h1 className="text-lg font-semibold truncate">{title}</h1>
+                </div>
+            </header>
+
+            {/* Content */}
+            <main className="flex-1 p-4">{children}</main>
+        </div>
+    );
+}
+
+
+================================================
 FILE PATH: src\components\layout.tsx
 ================================================
 import { Routes, Route, useLocation } from 'react-router-dom'; // Thêm useLocation
@@ -242,10 +291,12 @@ import WelcomePage from '@/pages/welcome';
 import CustomBottomNavigation from './navigation';
 import StoreDetailPage from '@/pages/store';
 import MyVoucherPage from '@/pages/profile/my-voucher/index';
+import RegisterStore from '@/pages/store/register';
+import ManagementStore from '@/pages/store/management';
 
 const Layout = () => {
   const location = useLocation();
-  const isWelcomePage = location.pathname === '/' || location.pathname === '/welcome';
+  const isNotShowBotton = location.pathname === '/' || location.pathname === '/welcome' || location.pathname === '/register';
 
   return (
     <Box className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -259,15 +310,180 @@ const Layout = () => {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/store/:id" element={<StoreDetailPage />} />
           <Route path="/my-voucher" element={<MyVoucherPage />} />
+          <Route path="/register" element={<RegisterStore />} />
+          <Route path="/management" element={<ManagementStore />} />
+
         </Routes>
       </Box>
 
-      {!isWelcomePage && <CustomBottomNavigation />}
+      {!isNotShowBotton && <CustomBottomNavigation />}
     </Box>
   );
 };
 
 export default Layout;
+
+
+================================================
+FILE PATH: src\components\LocationPicker.tsx
+================================================
+import { useEffect, useMemo, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
+import { MdLocationPin } from "react-icons/md";
+import L from "leaflet";
+import { renderToStaticMarkup } from "react-dom/server";
+import { BiCurrentLocation } from "react-icons/bi";
+
+export interface Location {
+  lat: number;
+  lng: number;
+}
+
+type Props = {
+  value?: Location | null;
+  onChange?: (loc: Location | null) => void;
+  onConfirm?: (loc: Location) => void;
+
+  initialCenter?: [number, number];
+  initialZoom?: number;
+
+  confirmText?: string;
+  className?: string;
+};
+
+function ClickPicker({ onPick }: { onPick: (latlng: Location) => void }) {
+  useMapEvents({
+    click(e) {
+      onPick({ lat: e.latlng.lat, lng: e.latlng.lng });
+    },
+  });
+  return null;
+}
+
+function LocateButton({ onLocate }: { onLocate: (latlng: Location) => void }) {
+  const map = useMap();
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!wrapRef.current) return;
+    // chặn click/touch/scroll “lọt” xuống map
+    L.DomEvent.disableClickPropagation(wrapRef.current);
+    L.DomEvent.disableScrollPropagation(wrapRef.current);
+  }, []);
+
+  const locate = () => {
+    if (!navigator.geolocation) {
+      toast.error("Trình duyệt không hỗ trợ GPS");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const latlng = { lat: latitude, lng: longitude };
+
+        onLocate(latlng);
+
+        // Move tới vị trí hiện tại (có animate)
+        map.flyTo([latitude, longitude], Math.max(map.getZoom(), 16), { animate: true });
+      },
+      () => toast.error("Không lấy được vị trí hiện tại"),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  return (
+    <div ref={wrapRef} className="absolute right-3 top-3 z-[1000]">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          locate();
+        }}
+        className="inline-flex items-center justify-center rounded-full bg-red-600 p-3 text-white shadow-lg ring-1 ring-red-200 transition hover:bg-red-700 active:scale-95"
+        aria-label="Vị trí hiện tại"
+        title="Vị trí hiện tại"
+      >
+        <BiCurrentLocation className="h-6 w-6" />
+      </button>
+    </div>
+  );
+}
+
+export default function LocationPicker({
+  value,
+  onChange,
+  onConfirm,
+  initialCenter = [21.5942, 105.8482],
+  initialZoom = 13,
+  confirmText = "Xác nhận vị trí",
+  className,
+}: Props) {
+  const [inner, setInner] = useState<Location | null>(null);
+
+  const location = value !== undefined ? value : inner;
+  const setLocation = (loc: Location | null) => {
+    if (value === undefined) setInner(loc);
+    onChange?.(loc);
+  };
+
+  const markerIcon = useMemo(() => {
+    const html = renderToStaticMarkup(
+      <div className="relative">
+        <MdLocationPin className="h-10 w-10 text-red-600 " />
+      </div>
+    );
+
+    return L.divIcon({
+      html,
+      className: "",
+      iconSize: [40, 40],
+      iconAnchor: [20, 36],
+    });
+  }, []);
+
+  const handleConfirm = () => {
+    if (!location) {
+      toast.error("Bạn chưa chọn vị trí");
+      return;
+    }
+    onConfirm?.(location);
+  };
+
+  return (
+    <div className={className}>
+      <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
+        {/* Map */}
+        <MapContainer
+          center={initialCenter}
+          zoom={initialZoom}
+          className="h-[420px] w-full"
+        >
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+          <ClickPicker onPick={setLocation} />
+          <LocateButton onLocate={setLocation} />
+
+          {location && (
+            <Marker position={[location.lat, location.lng]} icon={markerIcon} />
+          )}
+        </MapContainer>
+
+        <div className="absolute inset-x-0 bottom-4 z-[1001] flex justify-center px-3">
+          <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={!location}
+                className="inline-flex w-full max-w-md items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-red-600/20 transition hover:bg-red-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none"
+            >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 
 ================================================
@@ -384,29 +600,46 @@ export default React.memo(StoreCard, (prev, next) => {
 ================================================
 FILE PATH: src\components\map\StoreListItem.tsx
 ================================================
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Box, Text, Button } from 'zmp-ui';
 import { Store } from '@/types/store';
 import { FaStar } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import voucherMiniIcon from '../../static/icon voucher .svg';
 
 interface StoreListItemProps {
   store: Store;
+  onSelect?: (store: Store) => void;
+  isSelected?: boolean;
 }
 
-const StoreListItem: React.FC<StoreListItemProps> = ({ store }) => {
+const StoreListItem: React.FC<StoreListItemProps> = ({ store, onSelect, isSelected }) => {
   const navigate = useNavigate();
+
+  const handleViewDetail = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/store/${store.id}`);
+  };
+
+  // Hàm xử lý khi bấm vào cả cái thẻ
+  const handleCardClick = () => {
+    if (onSelect) {
+      onSelect(store);
+    }
+  };
 
   return (
     <div
       id={`store-item-${store.id}`}
-      className="bg-white border border-red-200 rounded-xl p-3 flex gap-3 shadow-sm active:opacity-70 transition-opacity"
-      onClick={() => navigate(`/store/${store.id}`)}
+      className={`bg-white border rounded-xl p-2 flex gap-3 shadow-sm active:opacity-90 transition-all duration-300 cursor-pointer ${
+        isSelected ? 'border-red-500 ring-1 ring-red-500 bg-red-50' : 'border-red-200'
+      }`}
+      onClick={handleCardClick}
     >
       <div className="w-24 h-24 flex-shrink-0 relative">
         <img
           src={store.image || 'https://via.placeholder.com/150'}
-          className="w-full h-full object-cover rounded-lg bg-gray-100"
+          className="w-full h-full object-cover rounded-lg bg-gray-100 border border-red-500"
           alt={store.name}
           onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150')}
         />
@@ -418,32 +651,42 @@ const StoreListItem: React.FC<StoreListItemProps> = ({ store }) => {
             <Text.Title size="small" className="font-bold text-gray-800 line-clamp-1 flex-1 pr-2">
               {store.name}
             </Text.Title>
-            <Text size="xxSmall" className="text-red-500 font-bold whitespace-nowrap">
+            <Text size="xSmall" className="text-red-500 font-bold whitespace-nowrap">
               {store.distance ? `${store.distance.toFixed(1)} km` : ''}
             </Text>
           </div>
 
           <Text size="xxSmall" className="text-gray-500 mb-1">
             {store.category || 'Nhà hàng'}
-            <span className="mx-1">•</span>
-            <span className="text-yellow-500 inline-flex items-center gap-0.5">
-              4.8 <FaStar size={10} />
+            <span className="text-yellow-500 inline-flex items-center gap-0.5 pl-2">
+              <div className="flex flex-row">
+                {Array(5)
+                  .fill(0)
+                  .map((_, index) => (
+                    <FaStar key={index} size={10} />
+                  ))}
+              </div>
             </span>
           </Text>
         </div>
 
-        <div className="flex items-end justify-between mt-2">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm relative overflow-hidden">
-              <span className="border-r border-white/30 pr-1 mr-1 border-dashed">VOUCHER</span>
-              <span>{store.vouchers?.length || 0}</span>
-              <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full"></div>
-            </div>
+        <div className="flex items-center justify-between mt-2">
+          <div className="relative w-12 h-12 flex-shrink-0 flex items-center justify-center">
+            <img
+              src={voucherMiniIcon}
+              className="w-full h-full object-contain"
+              alt="voucher-icon"
+            />
+
+            <span className="absolute inset-0 flex items-center justify-center text-white text-lg font-extrabold z-10 pt-1 pl-3 pb-2">
+              {store.vouchers?.length || 0}
+            </span>
           </div>
 
           <Button
             size="small"
             className="h-8 bg-[#D83231] text-white font-bold text-xs rounded-lg px-3 shadow-red-100 shadow-md border-none"
+            onClick={handleViewDetail}
           >
             Xem chi tiết
           </Button>
@@ -509,6 +752,365 @@ const CustomBottomNavigation = () => {
 };
 
 export default CustomBottomNavigation;
+
+
+================================================
+FILE PATH: src\components\StepperForm.tsx
+================================================
+import React, { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+
+type MaybePromise<T> = T | Promise<T>;
+
+type StepperCtx = {
+    index: number;
+    total: number;
+    isFirst: boolean;
+    isLast: boolean;
+    goTo: (i: number) => void;
+    next: () => void;
+    back: () => void;
+    setLoading: (v: boolean) => void;
+};
+
+export type StepConfig = {
+    key: string;
+    title: string;
+
+    indicator?: ReactNode | ((ctx: StepperCtx) => ReactNode);
+
+    content: ReactNode | ((ctx: StepperCtx) => ReactNode);
+
+    primaryText?: string;
+    secondaryText?: string;
+
+    canProceed?: boolean | ((ctx: StepperCtx) => boolean);
+
+    onPrimary?: (ctx: StepperCtx) => MaybePromise<void>;
+    onSecondary?: (ctx: StepperCtx) => void;
+};
+
+type ThemeName = "red" | "blue" | "emerald" | "violet" | "orange" | "slate";
+
+type StepperFormProps = {
+    steps: StepConfig[];
+
+    initialIndex?: number;
+
+    activeIndex?: number;
+    onActiveIndexChange?: (i: number) => void;
+
+    onFinish?: () => MaybePromise<void>;
+
+    showProgress?: boolean;
+    className?: string;
+
+    allowJump?: "back" | "any" | false;
+
+    canJumpTo?: (toIndex: number, ctx: StepperCtx) => boolean;
+
+    requireValidBeforeJump?: boolean;
+
+    theme?: ThemeName;
+};
+
+function getTheme(theme: ThemeName) {
+    const map: Record<ThemeName, {
+        solid: string;
+        solidHover: string;
+        solidText: string;
+        soft: string;
+        softText: string;
+        ring: string;
+    }> = {
+        red: {
+            solid: "bg-red-600",
+            solidHover: "hover:bg-red-700",
+            solidText: "text-white",
+            soft: "bg-red-100",
+            softText: "text-red-700",
+            ring: "focus:ring-red-300",
+        },
+        blue: {
+            solid: "bg-blue-600",
+            solidHover: "hover:bg-blue-700",
+            solidText: "text-white",
+            soft: "bg-blue-100",
+            softText: "text-blue-700",
+            ring: "focus:ring-blue-300",
+        },
+        emerald: {
+            solid: "bg-emerald-600",
+            solidHover: "hover:bg-emerald-700",
+            solidText: "text-white",
+            soft: "bg-emerald-100",
+            softText: "text-emerald-700",
+            ring: "focus:ring-emerald-300",
+        },
+        violet: {
+            solid: "bg-violet-600",
+            solidHover: "hover:bg-violet-700",
+            solidText: "text-white",
+            soft: "bg-violet-100",
+            softText: "text-violet-700",
+            ring: "focus:ring-violet-300",
+        },
+        orange: {
+            solid: "bg-orange-600",
+            solidHover: "hover:bg-orange-700",
+            solidText: "text-white",
+            soft: "bg-orange-100",
+            softText: "text-orange-700",
+            ring: "focus:ring-orange-300",
+        },
+        slate: {
+            solid: "bg-slate-800",
+            solidHover: "hover:bg-slate-900",
+            solidText: "text-white",
+            soft: "bg-slate-100",
+            softText: "text-slate-700",
+            ring: "focus:ring-slate-300",
+        },
+    };
+
+    return map[theme];
+}
+
+export default function StepperForm({
+    steps,
+    initialIndex = 0,
+    activeIndex,
+    onActiveIndexChange,
+    onFinish,
+    showProgress = true,
+    className,
+    allowJump = "back",
+    canJumpTo,
+    requireValidBeforeJump = true,
+    theme = "red",
+}: StepperFormProps) {
+    const t = getTheme(theme);
+
+    const isControlled = typeof activeIndex === "number";
+    const [internalIndex, setInternalIndex] = useState(initialIndex);
+    const [loading, setLoading] = useState(false);
+
+    const index = isControlled ? (activeIndex as number) : internalIndex;
+    const total = steps.length;
+    const step = steps[index];
+
+    const [maxReached, setMaxReached] = useState<number>((activeIndex ?? initialIndex) || 0);
+
+    useEffect(() => {
+        setMaxReached((prev) => Math.max(prev, index));
+    }, [index]);
+
+    const goTo = useCallback((i: number) => {
+        const nextIndex = Math.max(0, Math.min(total - 1, i));
+        if (isControlled) onActiveIndexChange?.(nextIndex);
+        else setInternalIndex(nextIndex);
+    }, [isControlled, onActiveIndexChange, total]);
+
+    const next = useCallback(() => goTo(index + 1), [goTo, index]);
+    const back = useCallback(() => goTo(index - 1), [goTo, index]);
+
+    const ctx: StepperCtx = useMemo(() => ({
+        index,
+        total,
+        isFirst: index === 0,
+        isLast: index === total - 1,
+        goTo,
+        next,
+        back,
+        setLoading,
+    }), [index, total, goTo, next, back]);
+
+    const ctxFor = useCallback((i: number): StepperCtx => ({
+        index: i,
+        total,
+        isFirst: i === 0,
+        isLast: i === total - 1,
+        goTo,
+        next: () => goTo(i + 1),
+        back: () => goTo(i - 1),
+        setLoading,
+    }), [goTo, setLoading, total]);
+
+    const isStepValid = useCallback((i: number) => {
+        const s = steps[i];
+        if (!s) return false;
+
+        if (typeof s.canProceed === "function") return s.canProceed(ctxFor(i));
+        if (typeof s.canProceed === "boolean") return s.canProceed;
+        return true;
+    }, [steps, ctxFor]);
+
+    const arePrereqsValid = useCallback((toIndex: number) => {
+        if (!requireValidBeforeJump) return true;
+
+        for (let k = 0; k < toIndex; k++) {
+            if (!isStepValid(k)) return false;
+        }
+        return true;
+    }, [isStepValid, requireValidBeforeJump]);
+
+    const canProceed = useMemo(() => {
+        if (loading) return false;
+        if (typeof step.canProceed === "function") return step.canProceed(ctx);
+        if (typeof step.canProceed === "boolean") return step.canProceed;
+        return true;
+    }, [loading, step.canProceed, ctx]);
+
+    const primaryText = step.primaryText ?? (ctx.isLast ? "Hoàn tất" : "Tiếp tục");
+    const secondaryText = step.secondaryText ?? "Quay lại";
+
+    const content = useMemo(() => {
+        return typeof step.content === "function" ? step.content(ctx) : step.content;
+    }, [step.content, ctx]);
+
+    const handlePrimary = useCallback(async () => {
+        if (!canProceed || loading) return;
+
+        try {
+            setLoading(true);
+
+            if (step.onPrimary) {
+                await step.onPrimary(ctx);
+                return;
+            }
+
+            if (ctx.isLast) {
+                await onFinish?.();
+                return;
+            }
+
+            ctx.next();
+        } finally {
+            setLoading(false);
+        }
+    }, [canProceed, loading, step, ctx, onFinish]);
+
+    const handleSecondary = useCallback(() => {
+        if (loading) return;
+
+        if (step.onSecondary) {
+            step.onSecondary(ctx);
+            return;
+        }
+
+        if (!ctx.isFirst) ctx.back();
+    }, [loading, step, ctx]);
+
+    const handleJump = useCallback((toIndex: number) => {
+        if (loading) return;
+        if (allowJump === false) return;
+
+        const allowedByMode = allowJump === "any" ? true : toIndex <= maxReached;
+        if (!allowedByMode) return;
+
+        if (!arePrereqsValid(toIndex)) return;
+        if (canJumpTo && !canJumpTo(toIndex, ctx)) return;
+
+        ctx.goTo(toIndex);
+    }, [loading, allowJump, maxReached, arePrereqsValid, canJumpTo, ctx]);
+
+    return (
+        <div className={className}>
+            {showProgress && (
+                <div className="mb-6">
+                    <div className="flex items-center justify-between gap-2">
+                        {steps.map((s, i) => {
+                            const isActive = i === index;
+                            const isDone = i < index;
+
+                            const clickable =
+                                allowJump !== false &&
+                                (allowJump === "any" ? true : i <= maxReached) &&
+                                arePrereqsValid(i) &&
+                                (!canJumpTo || canJumpTo(i, ctx)) &&
+                                !loading;
+
+                            const indicatorNode =
+                                typeof s.indicator === "function"
+                                    ? s.indicator(ctx)
+                                    : (s.indicator ?? (i + 1));
+
+                            return (
+                                <button
+                                    key={s.key}
+                                    type="button"
+                                    onClick={() => handleJump(i)}
+                                    disabled={!clickable}
+                                    className={[
+                                        "flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition",
+                                        isActive
+                                            ? `${t.solid} ${t.solidText}`
+                                            : isDone
+                                                ? `${t.soft} ${t.softText} hover:opacity-90`
+                                                : "bg-gray-100 text-gray-600",
+                                        clickable ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+                                    ].join(" ")}
+                                    title={s.title}
+                                >
+                                    <div className="flex items-center justify-center gap-2">
+                                        <span
+                                            className={[
+                                                "inline-flex h-6 min-w-6 px-2 items-center justify-center rounded-full text-xs font-bold",
+                                                isActive
+                                                    ? "bg-white/20 text-white"
+                                                    : isDone
+                                                        ? `${t.solid} ${t.solidText}`
+                                                        : "bg-gray-300 text-gray-700",
+                                            ].join(" ")}
+                                        >
+                                            {indicatorNode}
+                                        </span>
+
+                                        <span className="hidden sm:inline truncate">
+                                            {s.title}
+                                        </span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            <div className="space-y-5">
+                <h3 className="text-lg font-semibold text-gray-800">{step.title}</h3>
+
+                {content}
+
+                <div className="flex gap-3 pt-4">
+                    {!ctx.isFirst && (
+                        <button
+                            type="button"
+                            onClick={handleSecondary}
+                            className="flex-1 border border-gray-300 py-3 rounded-xl"
+                            disabled={loading}
+                        >
+                            {secondaryText}
+                        </button>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={handlePrimary}
+                        disabled={!canProceed || loading}
+                        className={[
+                            "flex-1 py-3 rounded-xl font-semibold transition",
+                            canProceed && !loading
+                                ? `${t.solid} ${t.solidHover} ${t.solidText}`
+                                : "bg-gray-300 text-gray-500 cursor-not-allowed",
+                        ].join(" ")}
+                    >
+                        {loading ? "Đang xử lý..." : primaryText}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 
 ================================================
@@ -1566,7 +2168,6 @@ export default FlashSaleList;
 ================================================
 FILE PATH: src\pages\home\index.tsx
 ================================================
-// FILE: src/pages/home/index.tsx
 import React, { useEffect, useState } from 'react';
 import { Page, Input, Box, Text, Icon } from 'zmp-ui';
 import { usePublicStore } from '@/hooks/usePublicStore';
@@ -1619,7 +2220,6 @@ const HomePage: React.FC = () => {
         lat: position[0],
         lng: position[1],
         category: catValue,
-        forceRefresh: true,
       });
 
       // Lọc danh sách Flash Sale
@@ -2127,7 +2727,11 @@ const MapViewComponent: React.FC = () => {
         </Box>
       </div>
 
-      <StoreListSection filteredStores={filteredStores} selectedStore={selectedStore} />
+      <StoreListSection
+        filteredStores={filteredStores}
+        selectedStore={selectedStore}
+        onSelectStore={setSelectedStore}
+      />
     </Page>
   );
 };
@@ -2402,73 +3006,122 @@ export default MapSearchBar;
 ================================================
 FILE PATH: src\pages\map\StoreListSection.tsx
 ================================================
-import React, { useEffect, useRef, useMemo } from 'react';
-import { Box, Text } from 'zmp-ui';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
+import { Box, Text, Sheet, List, Icon } from 'zmp-ui';
 import { Store } from '@/types/store';
 import StoreListItem from '@/components/map/StoreListItem';
 import { MdOutlineFilterList } from 'react-icons/md';
+import { CATEGORY_LABELS } from '@/constants/categories';
 
 interface StoreListSectionProps {
   filteredStores: Store[];
   selectedStore: Store | null;
+  onSelectStore: (store: Store | null) => void;
 }
 
-const StoreListSection: React.FC<StoreListSectionProps> = ({ filteredStores, selectedStore }) => {
+const FILTER_OPTIONS = [
+  { label: 'Tất cả', value: 'ALL' },
+  { label: 'Ăn uống', value: 'food|drink' },
+  { label: 'Dịch vụ', value: 'service' },
+  { label: 'Giải trí', value: 'playground' },
+  { label: 'Sức khỏe', value: 'health' },
+];
+
+const StoreListSection: React.FC<StoreListSectionProps> = ({
+  filteredStores,
+  selectedStore,
+  onSelectStore,
+}) => {
   const hotListRef = useRef<HTMLDivElement>(null);
   const otherListRef = useRef<HTMLDivElement>(null);
 
-  const hotStores = useMemo(() => {
-    return filteredStores.filter((s) => s.vouchers && s.vouchers.length > 0);
-  }, [filteredStores]);
+  const [hotFilter, setHotFilter] = useState('ALL');
+  const [nearbyFilter, setNearbyFilter] = useState('ALL');
 
-  const otherStores = useMemo(() => {
+  const [activeSheet, setActiveSheet] = useState<'HOT' | 'NEARBY' | null>(null);
+
+  const rawHotStores = useMemo(() => {
     return filteredStores;
   }, [filteredStores]);
 
+  const rawOtherStores = useMemo(() => {
+    return filteredStores;
+  }, [filteredStores]);
+
+  const applyFilter = (stores: Store[], filterType: string) => {
+    if (filterType === 'ALL') return stores;
+    return stores.filter((store) => {
+      const cat = (store.category || '').toLowerCase();
+      if (filterType.includes('|')) {
+        const types = filterType.split('|');
+        return types.some((t) => cat.includes(t));
+      }
+      return cat.includes(filterType);
+    });
+  };
+
+  const displayHotStores = useMemo(() => {
+    return applyFilter(rawHotStores, hotFilter);
+  }, [rawHotStores, hotFilter]);
+
+  const displayNearbyStores = useMemo(() => {
+    return applyFilter(rawOtherStores, nearbyFilter);
+  }, [rawOtherStores, nearbyFilter]);
+
   useEffect(() => {
     if (!selectedStore) return;
-
     const handleScrollToTop = (container: HTMLDivElement | null, storeId: number) => {
       if (!container) return;
-
       const element = container.querySelector(`#store-item-${storeId}`) as HTMLElement;
-
       if (element) {
         const containerRect = container.getBoundingClientRect();
         const elementRect = element.getBoundingClientRect();
-
         const offset = elementRect.top - containerRect.top;
-
-        container.scrollTo({
-          top: container.scrollTop + offset,
-          behavior: 'smooth',
-        });
-
-        element.classList.add('ring-2', 'ring-red-500');
-        setTimeout(() => element.classList.remove('ring-2', 'ring-red-500'), 5000);
+        container.scrollTo({ top: container.scrollTop + offset, behavior: 'smooth' });
       }
     };
 
-    const isHot = hotStores.find((s) => s.id === selectedStore.id);
+    const isHot = displayHotStores.find((s) => s.id === selectedStore.id);
     if (isHot) {
       handleScrollToTop(hotListRef.current, selectedStore.id);
     } else {
       handleScrollToTop(otherListRef.current, selectedStore.id);
     }
-  }, [selectedStore, hotStores]);
+  }, [selectedStore, displayHotStores, displayNearbyStores]);
+
+  const handleSelectFilter = (value: string) => {
+    if (activeSheet === 'HOT') {
+      setHotFilter(value);
+    } else if (activeSheet === 'NEARBY') {
+      setNearbyFilter(value);
+    }
+    setActiveSheet(null);
+  };
 
   return (
     <div className="bg-gray-100 rounded-t-3xl min-h-screen relative z-10 -mt-6 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-      <div className="px-1 pb-safe ">
-        {hotStores.length > 0 && (
+      <div className="px-1 pb-safe pt-2">
+        {rawHotStores.length > 0 && (
           <div className="mb-6">
             <div className="flex justify-between flex-col bg-white px-4 py-1 rounded-xl shadow-sm items-center mb-3">
               <div className="w-12 h-1.5 bg-gray-300 rounded-full opacity-50 mt-2"></div>
 
               <div className="flex flex-row items-center justify-between w-full py-1 mb-2">
                 <Text className="font-bold text-gray-700 uppercase text-lg">VOUCHERS HOT</Text>
-                <Box className="flex flex-row gap-1 text-red-500 text-sm border border-red-500 rounded-full px-3 py-1 cursor-pointer active:opacity-60">
-                  <Text className="items-center">Lọc</Text>
+
+                <Box
+                  onClick={() => setActiveSheet('HOT')}
+                  className={`flex flex-row gap-1 text-sm border rounded-full px-3 py-1 cursor-pointer active:opacity-60 transition-colors ${
+                    hotFilter !== 'ALL'
+                      ? 'bg-red-50 border-red-500 text-red-500'
+                      : 'border-red-300 text-red-500'
+                  }`}
+                >
+                  <Text className="items-center font-medium">
+                    {hotFilter === 'ALL'
+                      ? 'Lọc'
+                      : FILTER_OPTIONS.find((f) => f.value === hotFilter)?.label}
+                  </Text>
                   <MdOutlineFilterList className="text-2xl" />
                 </Box>
               </div>
@@ -2477,26 +3130,46 @@ const StoreListSection: React.FC<StoreListSectionProps> = ({ filteredStores, sel
                 ref={hotListRef}
                 className="flex flex-col gap-3 w-full max-h-[400px] overflow-y-auto scroll-smooth pr-1 custom-scrollbar relative"
               >
-                {hotStores.map((store) => (
-                  <div key={store.id}>
-                    <StoreListItem store={store} />
-                  </div>
-                ))}
+                {displayHotStores.length > 0 ? (
+                  displayHotStores.map((store) => (
+                    <div key={store.id}>
+                      <StoreListItem
+                        store={store}
+                        onSelect={onSelectStore}
+                        isSelected={selectedStore?.id === store.id}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-400 text-sm">Không có kết quả lọc</div>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {otherStores.length > 0 && (
+        {rawOtherStores.length > 0 && (
           <div className="mb-20">
             <div className="flex justify-between flex-col bg-white px-4 py-2 rounded-xl shadow-sm items-center mb-3">
               <div className="flex flex-row items-center justify-between w-full py-2 mb-2">
                 <div className="flex flex-row items-center justify-between w-full py-1">
                   <Text className="font-bold text-gray-700 uppercase text-base">
-                    CÓ THỂ BẠN QUAN TÂM
+                    KHÁM PHÁ QUANH ĐÂY
                   </Text>
-                  <Box className="flex flex-row gap-1 text-red-500 border border-red-500 rounded-full px-3 py-1 cursor-pointer active:opacity-60">
-                    <Text className="items-center">Lọc</Text>
+
+                  <Box
+                    onClick={() => setActiveSheet('NEARBY')}
+                    className={`flex flex-row gap-1 text-sm border rounded-full px-3 py-1 cursor-pointer active:opacity-60 transition-colors ${
+                      nearbyFilter !== 'ALL'
+                        ? 'bg-red-50 border-red-500 text-red-500'
+                        : 'border-red-300 text-red-500'
+                    }`}
+                  >
+                    <Text className="items-center font-medium">
+                      {nearbyFilter === 'ALL'
+                        ? 'Lọc'
+                        : FILTER_OPTIONS.find((f) => f.value === nearbyFilter)?.label}
+                    </Text>
                     <MdOutlineFilterList className="text-2xl" />
                   </Box>
                 </div>
@@ -2506,16 +3179,56 @@ const StoreListSection: React.FC<StoreListSectionProps> = ({ filteredStores, sel
                 ref={otherListRef}
                 className="flex flex-col gap-3 w-full max-h-[650px] overflow-y-auto scroll-smooth pr-1 custom-scrollbar relative"
               >
-                {otherStores.map((store) => (
-                  <div key={store.id}>
-                    <StoreListItem store={store} />
-                  </div>
-                ))}
+                {displayNearbyStores.length > 0 ? (
+                  displayNearbyStores.map((store) => (
+                    <div key={store.id}>
+                      <StoreListItem
+                        store={store}
+                        onSelect={onSelectStore}
+                        isSelected={selectedStore?.id === store.id}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-gray-400 text-sm">Không có kết quả lọc</div>
+                )}
               </div>
             </div>
           </div>
         )}
       </div>
+
+      <Sheet
+        visible={!!activeSheet}
+        onClose={() => setActiveSheet(null)}
+        autoHeight
+        mask
+        handler
+        swipeToClose
+        title="Chọn danh mục hiển thị"
+      >
+        <div className="p-4 flex flex-col gap-2 pb-20">
+          {FILTER_OPTIONS.map((opt) => {
+            const isActive =
+              activeSheet === 'HOT' ? hotFilter === opt.value : nearbyFilter === opt.value;
+
+            return (
+              <div
+                key={opt.value}
+                onClick={() => handleSelectFilter(opt.value)}
+                className={`p-3  rounded-xl border flex justify-between items-center cursor-pointer ${
+                  isActive
+                    ? 'bg-red-50 border-red-500 text-red-600'
+                    : 'border-gray-100 text-gray-700'
+                }`}
+              >
+                <span className="font-medium">{opt.label}</span>
+                {isActive && <Icon icon="zi-check" className="text-red-600" />}
+              </div>
+            );
+          })}
+        </div>
+      </Sheet>
     </div>
   );
 };
@@ -2967,6 +3680,10 @@ const ProfilePage: React.FC = () => {
               onClick={() => handleProtectedAction(() => console.log('Chức năng địa chỉ cũ'))}
             />
 
+            <SettingItem onClick={() => {
+              navigate('/register');
+            }} icon={<Icon icon="zi-poll-solid" />} label="Đăng ký cửa hàng" />
+
             <SettingItem icon={<Icon icon="zi-notif-ring" />} label="Thông báo" />
             <SettingItem icon={<Icon icon="zi-lock" />} label="Quyền riêng tư" />
             <SettingItem icon={<Icon icon="zi-poll-solid" />} label="Trung tâm trợ giúp" />
@@ -3236,6 +3953,7 @@ import { useParams } from 'react-router-dom';
 import api from '@/services/api';
 import { useStore } from '@/hooks/useStore';
 import { FaDirections } from 'react-icons/fa';
+import { openMap } from '@/utils/map';
 
 const StoreDetailPage: React.FC = () => {
   const { id } = useParams(); // Lấy ID quán từ URL
@@ -3280,14 +3998,6 @@ const StoreDetailPage: React.FC = () => {
     );
 
   if (!store) return <div className="text-center mt-20">Không tìm thấy quán</div>;
-  const openMap = () => {
-    const lat = store.lat;
-    const lng = store.lng;
-
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-
-    window.location.href = url;
-  };
 
   return (
     <Page className="bg-white pb-20 relative">
@@ -3343,7 +4053,7 @@ const StoreDetailPage: React.FC = () => {
 
           <div className="">
             <button
-              onClick={openMap}
+              onClick={() => {openMap(store.lat, store.lng)}}
               className="
                 flex items-center gap-2
                 bg-green-600 active:bg-green-700
@@ -3405,6 +4115,312 @@ const StoreDetailPage: React.FC = () => {
 };
 
 export default StoreDetailPage;
+
+
+================================================
+FILE PATH: src\pages\store\management.tsx
+================================================
+export default function storeManagement() {
+
+    return (
+        <>
+        </>
+    )
+}
+
+================================================
+FILE PATH: src\pages\store\register\ContainerMap.tsx
+================================================
+
+
+================================================
+FILE PATH: src\pages\store\register\index.tsx
+================================================
+import ContainerLayout from "@/components/container";
+import StepperForm, { StepConfig } from "@/components/StepperForm";
+import { useAtomValue } from "jotai";
+import { toast } from "react-hot-toast";
+import StepBusinessInfo from "./step1";
+import { registerStoreFormState } from "@/state";
+import StepBusinessPlan from "./step2";
+
+export default function Register() {
+    const form = useAtomValue(registerStoreFormState);
+
+    const steps: StepConfig[] = [
+        {
+            key: "info",
+            title: "Thông tin doanh nghiệp",
+            content: <StepBusinessInfo />,
+            canProceed: () =>
+                !!form.businessName &&
+                !!form.phone &&
+                form.lat !== null &&
+                form.lng !== null,
+        },
+        {
+            key: "plan",
+            title: "Kế hoạch voucher",
+            content: <StepBusinessPlan />,
+            canProceed: () =>
+                form.voucherTypes.length > 0 &&
+                !!form.monthlyBudget,
+        },
+    ];
+
+    return (
+        <ContainerLayout title="Đăng ký doanh nghiệp">
+            <StepperForm
+                steps={steps}
+                allowJump="back"
+                onFinish={async () => {
+                    console.log("SUBMIT:", form);
+                    toast.success("Đăng ký thành công!");
+                }}
+            />
+        </ContainerLayout>
+    );
+}
+
+
+================================================
+FILE PATH: src\pages\store\register\Step1.tsx
+================================================
+// StepBusinessInfo.tsx
+import { useAtom } from "jotai";
+import LocationPicker from "@/components/LocationPicker";
+import { registerStoreFormState } from "@/state";
+
+const inputClass =
+    "w-full rounded-xl border border-gray-300 px-4 py-3 " +
+    "focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none";
+
+const labelClass =
+    "text-sm font-semibold text-gray-700";
+
+const sectionClass =
+    "rounded-2xl border border-gray-200 bg-white p-5 space-y-4";
+
+export default function StepBusinessInfo() {
+    const [form, setForm] = useAtom(registerStoreFormState);
+
+    const update = (k: string, v: any) =>
+        setForm((p) => ({ ...p, [k]: v }));
+
+    return (
+        <div className="space-y-6">
+            {/* Thông tin cơ bản */}
+            <div className={sectionClass}>
+                <h4 className="text-red-600 font-bold">
+                    Thông tin doanh nghiệp
+                </h4>
+
+                <div>
+                    <label className={labelClass}>Tên doanh nghiệp</label>
+                    <input
+                        className={inputClass}
+                        value={form.businessName}
+                        onChange={(e) => update("businessName", e.target.value)}
+                    />
+                </div>
+
+                <div>
+                    <label className={labelClass}>Mã số thuế</label>
+                    <input
+                        className={inputClass}
+                        value={form.taxCode}
+                        onChange={(e) => update("taxCode", e.target.value)}
+                    />
+                </div>
+
+                <div>
+                    <label className={labelClass}>Lĩnh vực kinh doanh</label>
+                    <select
+                        className={inputClass}
+                        value={form.businessField}
+                        onChange={(e) => update("businessField", e.target.value)}
+                    >
+                        <option value="">-- Chọn lĩnh vực --</option>
+                        <option value="food">Ẩm thực</option>
+                        <option value="hotel">Lưu trú</option>
+                        <option value="entertainment">Giải trí</option>
+                        <option value="health">Sức khoẻ</option>
+                        <option value="other">Khác</option>
+                    </select>
+                </div>
+            </div>
+
+            {/* Địa chỉ */}
+            <div className={sectionClass}>
+                <h4 className="text-red-600 font-bold">
+                    Địa chỉ tại Thái Nguyên
+                </h4>
+
+            </div>
+
+            {/* Người liên hệ */}
+            <div className={sectionClass}>
+                <h4 className="text-red-600 font-bold">
+                    Thông tin liên hệ
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label className={labelClass}>Người liên hệ</label>
+                        <input
+                            className={inputClass}
+                            value={form.contactPerson}
+                            onChange={(e) => update("contactPerson", e.target.value)}
+                        />
+                    </div>
+
+                    <div>
+                        <label className={labelClass}>Chức vụ</label>
+                        <input
+                            className={inputClass}
+                            value={form.position}
+                            onChange={(e) => update("position", e.target.value)}
+                        />
+                    </div>
+
+                    <div>
+                        <label className={labelClass}>Số điện thoại</label>
+                        <input
+                            className={inputClass}
+                            value={form.phone}
+                            onChange={(e) => update("phone", e.target.value)}
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+================================================
+FILE PATH: src\pages\store\register\Step2.tsx
+================================================
+// StepBusinessPlan.tsx
+import { registerStoreFormState } from "@/state";
+import { useAtom } from "jotai";
+
+const inputClass =
+    "w-full rounded-xl border border-gray-300 px-4 py-3 " +
+    "focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none";
+
+const labelClass =
+    "text-sm font-semibold text-gray-700";
+
+const sectionClass =
+    "rounded-2xl border border-gray-200 bg-white p-5 space-y-4";
+
+export default function StepBusinessPlan() {
+    const [form, setForm] = useAtom(registerStoreFormState);
+
+    const update = (k: string, v: any) =>
+        setForm((p) => ({ ...p, [k]: v }));
+
+    const toggleVoucher = (v: string) => {
+        setForm((p) => ({
+            ...p,
+            voucherTypes: p.voucherTypes.includes(v)
+                ? p.voucherTypes.filter((x) => x !== v)
+                : [...p.voucherTypes, v],
+        }));
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className={sectionClass}>
+                <h4 className="text-red-600 font-bold">
+                    Quy mô & Thời gian hoạt động
+                </h4>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label className={labelClass}>Quy mô doanh nghiệp</label>
+                        <input
+                            className={inputClass}
+                            value={form.businessScale}
+                            onChange={(e) => update("businessScale", e.target.value)}
+                        />
+                    </div>
+
+                    <div>
+                        <label className={labelClass}>Thời gian hoạt động</label>
+                        <input
+                            className={inputClass}
+                            value={form.yearsOperation}
+                            onChange={(e) => update("yearsOperation", e.target.value)}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div className={sectionClass}>
+                <h4 className="text-red-600 font-bold">
+                    Chương trình voucher
+                </h4>
+
+                <div className="flex flex-wrap gap-3">
+                    {["Giảm giá", "Combo", "Hoàn tiền"].map((v) => {
+                        const active = form.voucherTypes.includes(v);
+                        return (
+                            <button
+                                key={v}
+                                type="button"
+                                onClick={() => toggleVoucher(v)}
+                                className={[
+                                    "px-4 py-2 rounded-full border text-sm font-medium transition",
+                                    active
+                                        ? "bg-red-600 text-white border-red-600"
+                                        : "border-gray-300 text-gray-600 hover:border-red-400",
+                                ].join(" ")}
+                            >
+                                {v}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div className={sectionClass}>
+                <h4 className="text-red-600 font-bold">
+                    Mục tiêu & Ngân sách
+                </h4>
+
+                <div>
+                    <label className={labelClass}>Khách hàng mục tiêu</label>
+                    <input
+                        className={inputClass}
+                        value={form.targetCustomers}
+                        onChange={(e) => update("targetCustomers", e.target.value)}
+                    />
+                </div>
+
+                <div>
+                    <label className={labelClass}>Ngân sách hàng tháng</label>
+                    <input
+                        className={inputClass}
+                        value={form.monthlyBudget}
+                        onChange={(e) => update("monthlyBudget", e.target.value)}
+                    />
+                </div>
+
+                <div>
+                    <label className={labelClass}>Mục tiêu chương trình</label>
+                    <textarea
+                        className={inputClass}
+                        rows={3}
+                        value={form.campaignGoal}
+                        onChange={(e) => update("campaignGoal", e.target.value)}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
 
 
 ================================================
@@ -3986,6 +5002,35 @@ export const storeService = {
 
 
 ================================================
+FILE PATH: src\state.ts
+================================================
+import { atom } from "jotai";
+import { RegisterStoreForm } from "./type";
+
+export const registerStoreFormState =
+    atom<RegisterStoreForm>({
+    businessName: "",
+    taxCode: "",
+    lat: null,
+    lng: null,
+    businessField: "",
+
+    contactPerson: "",
+    position: "",
+    phone: "",
+    licenseImage: null,
+
+    businessScale: "",
+    yearsOperation: "",
+
+    voucherTypes: [],
+    targetCustomers: "",
+    monthlyBudget: "",
+    campaignGoal: "",
+});
+
+
+================================================
 FILE PATH: src\states\state.ts
 ================================================
 import { atom } from 'recoil';
@@ -4036,6 +5081,30 @@ export const locationPermissionDeniedState = atom<boolean>({
   key: 'locationPermissionDeniedState',
   default: false,
 });
+
+
+
+
+================================================
+FILE PATH: src\type.ts
+================================================
+export interface RegisterStoreForm {
+    businessName: string;
+    taxCode: string;
+    lat: number | null;
+    lng: number | null;
+    businessField: string;
+    contactPerson: string;
+    position: string;
+    phone: string;
+    licenseImage?: File | null;
+    businessScale: string;
+    yearsOperation: string;
+    voucherTypes: string[];
+    targetCustomers: string;
+    monthlyBudget: string;
+    campaignGoal: string;
+}
 
 
 ================================================
@@ -4131,6 +5200,19 @@ export const formatDateVN = (dateInput: string | Date | number): string => {
     year: 'numeric',
   });
 };
+
+
+================================================
+FILE PATH: src\utils\map.ts
+================================================
+
+
+  export const openMap = (lat, lng) => {
+
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+    window.location.href = url;
+  };
 
 
 ================================================

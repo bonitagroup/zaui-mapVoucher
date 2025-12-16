@@ -47,4 +47,7 @@ export const locationPermissionDeniedState = atom<boolean>({
   default: false,
 });
 
-
+export const lastFetchedLocationState = atom<[number, number] | null>({
+  key: 'lastFetchedLocationState',
+  default: null,
+});
